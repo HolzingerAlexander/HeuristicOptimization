@@ -49,3 +49,82 @@ def is_splex(nodes, plex_number, s) -> bool | pd.DataFrame:
         return True
     else:
         return problem_nodes
+
+def extract1node(nodes_solution, edges_solution, score, s, step="best", random_state= 42):
+    "step should be best, first or random"
+    best_score = float('inf')
+    # shuffle them, otherwise for random we will always get the first node removed
+    nodes_shuffled = nodes_solution.sample(frac=1, random_state= random_state)
+    
+    # need to search whole neighborhood
+    for index, row in nodes_shuffled.iterrows():
+        current_node = row["node_number"]
+        plex_number = row["splex"]
+        node_edges = edges_solution.loc[((edges_solution["n1"]==current_node)|
+                                         (edges_solution["n2"]==current_node)) &
+                               (edges_solution["e"]==1)]
+        node_neighbors = list(set(node_edges["n1"]).union(set(node_edges["n2"])))
+        node_neighbors.remove(current_node)
+        
+        # what would node and edge list look like if we removed the node
+        tmp_nodes = nodes_solution.copy()
+        tmp_edges = edges_solution.copy()
+        tmp_score = score - node_edges["w"].sum()
+        tmp_score = tmp_score.item()
+
+        # correct info of node we want to extract
+        tmp_nodes.loc[tmp_nodes["node_number"]==current_node, ["current_degree"]] = 0
+        tmp_nodes.loc[tmp_nodes["node_number"]==current_node, ["splex"]] = max(tmp_nodes.splex)+1
+        # correct info of rest of nodes of this plex
+        tmp_nodes.loc[tmp_nodes["node_number"].isin(node_neighbors), ["current_degree"]] -=1
+        for i in node_neighbors:
+            # remove the edge
+            tmp_edges.loc[((tmp_edges["n1"]==current_node)&(tmp_edges["n2"]==i))|
+                         ((tmp_edges["n2"]==current_node)&(tmp_edges["n1"]==i)), "e"] = 0
+            weight = tmp_edges.loc[((tmp_edges["n1"]==current_node)&(tmp_edges["n2"]==i))|
+                         ((tmp_edges["n2"]==current_node)&(tmp_edges["n1"]==i)), "w"]
+            # adjust node impact in of both nodes
+            tmp_nodes.loc[(tmp_nodes["node_number"]==i) | (tmp_nodes["node_number"]==current_node),
+                         ["node_impact"]] -= weight 
+            
+        #check if it is still an splex
+        plex = is_splex(tmp_nodes, plex_number = plex_number, s = s)
+        if not isinstance(plex, (bool)): # we have to correct the splex
+            corrected_nodes = set()
+            corrected_edges = pd.DataFrame(columns=["n1","n2","e","w"])
+            for i in plex["node_number"]:
+                if i in corrected_nodes:
+                    continue # was already corrected when correcting another node
+                else:
+                    # get the cheapest edge we can add within the plex and add it
+                    cheapest_edge = edges.loc[((tmp_edges["n1"]==i) & (tmp_edges["n2"].isin(plex["node_number"])) |
+                                                  (tmp_edges["n2"]==i) & (tmp_edges["n1"].isin(plex["node_number"]))) &
+                                                 (tmp_edges["e"]==0)].sort_values(by=['w']).iloc[:1]
+                    # add the cheapest edge
+                    tmp_edges.loc[(tmp_edges["n1"]==cheapest_edges["n1"])&(tmp_edges["n2"]==cheapest_edges["n2"]),
+                                 "e"] = 1
+                    # adjust node info
+                    tmp_nodes.loc[(tmp_nodes["node_number"]==cheapest_edges["n1"]) | 
+                                  (tmp_nodes["node_number"]==cheapest_edges["n2"]),
+                         ["current_degree"]] += 1
+                    weight = tmp_edges.loc[(tmp_edges["n1"]==cheapest_edges["n1"])&(tmp_edges["n2"]==cheapest_edges["n2"]),
+                                 "w"].value
+                    tmp_nodes.loc[(tmp_nodes["node_number"]==cheapest_edges["n1"]) | 
+                                  (tmp_nodes["node_number"]==cheapest_edges["n2"]),
+                         ["node_impact"]] += weight
+                    # update score
+                    tmp_score += weight
+           
+                           
+        # at this point we have a valid neighbor. Now we need to check if it is better
+        if tmp_score <= best_score:
+            best_score = tmp_score
+            new_nodes = tmp_nodes
+            new_edges = tmp_edges
+            
+            if (step == "random"):             
+                break
+            if ((step == "first") and (best_score < score.item())):   
+                break
+                
+    return (new_nodes, new_edges, best_score)
