@@ -55,6 +55,7 @@ def extract1node(nodes_solution, edges_solution, score, s, step="best", random_s
     best_score = float('inf')
     # shuffle them, otherwise for random we will always get the first node removed
     nodes_shuffled = nodes_solution.sample(frac=1, random_state= random_state)
+    start = time.time()
     
     # need to search whole neighborhood
     for index, row in nodes_shuffled.iterrows():
@@ -127,17 +128,19 @@ def extract1node(nodes_solution, edges_solution, score, s, step="best", random_s
             
             if (step == "random"):             
                 break
-            if ((step == "first") and (best_score < score.item())):   
+            if ((step == "first") and (best_score < score)):   
                 break
-                
+    
+    print(round(time.time()-start, 2), "seconds")
     return (new_nodes, new_edges, best_score)
 
 
-def merge2plexes(nodes_solution, edges_solution, score, s, step="best", random_state= 42):
+def merge2plexes(nodes_solution, edges_solution, score, s, step="best", random_state= 42, add_neg_edges = False):
     "step should be best, first or random"
     best_score = float('inf')
     plex_list = nodes_solution["splex"].unique()
     break_flag = False
+    start = time.time()
     
     for plex_outer in plex_list:
         if break_flag == True:
@@ -148,12 +151,27 @@ def merge2plexes(nodes_solution, edges_solution, score, s, step="best", random_s
             else:
                 tmp_nodes = nodes_solution.copy()
                 tmp_edges = edges_solution.copy()
-                tmp_score = score.item()
+                tmp_score = score
                 # merge them
                 tmp_nodes.loc[tmp_nodes["splex"]==plex_inner, ["splex"]] = plex_outer
                 deg_needed = tmp_nodes.loc[tmp_nodes["splex"]==plex_outer].shape[0]-s
                 potential_plex_nodes = list(tmp_nodes.node_number.loc[tmp_nodes["splex"]==plex_outer])
-                
+                # add all edges we want to have anyway
+                if add_neg_edges:
+                    for index, row in tmp_edges.iterrows():
+                        n1 = row.n1.item()
+                        n2 = row.n2.item()
+                        if (n1 in (potential_plex_nodes)) and (n2 in (potential_plex_nodes)) and row.e == 0 and row.w <=0:
+
+                            tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2)] = 1
+                            # update node info
+                            tmp_nodes.loc[(tmp_nodes["node_number"]==n1)|(tmp_nodes["node_number"]==n2), 
+                                          ["current_degree"]] +=1
+                            tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | (tmp_nodes["node_number"]==n2),
+                                     ["node_impact"]] += row.w 
+                            # update score
+                            tmp_score += row.w
+                        
                 #check if it is still an splex (most definitely not)
                 plex = is_splex(tmp_nodes, plex_number = plex_outer, s = s)
                 if not isinstance(plex, (bool)): # we have to correct the splex
@@ -189,8 +207,207 @@ def merge2plexes(nodes_solution, edges_solution, score, s, step="best", random_s
                     if (step == "random"):
                         break_flag = True
                         break
-                    if ((step == "first") and (best_score < score.item())): 
+                    if ((step == "first") and (best_score < score)): 
                         break_flag = True
                         break
-                
+    
+    print(round(time.time()-start, 2), "seconds")            
     return (new_nodes, new_edges, best_score)
+
+def construction_heuristic(nodes_orig, edges_orig, s):
+    nodes = nodes_orig.copy()
+    edges = edges_orig.copy()
+    
+    start = time.time()
+    
+    existing_edges = edges.loc[edges["w"]<0].sort_values("w")
+
+    for index, row in existing_edges.iterrows():
+        # check if this edge was already added, then we can continue to next one
+        if edges.loc[(edges["n1"]==row["n1"]) & (edges["n2"]==row["n2"]), "e"].values[0] == 1:
+            continue
+        # get plex assignment of both nodes
+        n1_plex = nodes.loc[nodes["node_number"]==row["n1"], "splex"].values[0]
+        n2_plex = nodes.loc[nodes["node_number"]==row["n2"], "splex"].values[0]
+        # all nodes that would be in the plex if we merged it
+        nodes_in_plex = nodes.loc[(nodes["splex"]==n1_plex) | (nodes["splex"] ==n2_plex), "node_number"].values
+        # all edges we would want anyway as they were in original assignment
+        edges_to_add = edges.loc[(edges["n1"].isin(nodes_in_plex)) & 
+                                        (edges["n2"].isin(nodes_in_plex)) & # only edges within the potential splex
+                                       (edges["w"]<=0) & # that we want to add anyway
+                                       (edges["e"]==0)] #that have not been added yet
+
+        number_of_nodes = len(nodes_in_plex)
+        edges_missing = False
+        needed_edges_by_node: dict = dict()
+
+        # check if it would be a valid splex if we merge by checking node degrees
+        for node in nodes_in_plex:
+            node_degree = nodes.loc[nodes["node_number"]==node,"current_degree"].values[0]
+            if node_degree < (number_of_nodes - s):
+                # if we can reach the node degree by only using the edges we want to add anyway, then everything is fine
+                num_potential_edges = edges_to_add.loc[(edges_to_add["n1"]==node)|
+                                                             (edges_to_add["n2"]==node)].shape[0]
+                new_degree = node_degree + num_potential_edges
+                needed_edges = number_of_nodes - s - new_degree
+                if needed_edges > 0:
+                    edges_missing = True
+                    needed_edges_by_node[node] = needed_edges
+                    break
+
+        # TODO: Also add 'bad' edges if it decreases total weight
+        if False: #edges_missing:
+            totalWeight = edges_to_add["w"].sum()
+            
+            nodes_to_process = needed_edges_by_node.keys()
+            
+            candidates = edges.loc[(edges["n1"].isin(nodes_in_plex)) & 
+                                    (edges["n2"].isin(nodes_in_plex)) & # only edges within the potential splex
+                                    (edges["w"]>0) & # that we do not add automatically
+                                    (edges["e"]==0) & # that have not been added yet
+                                    (edges["n1"].isin(nodes_to_process) |
+                                    edges["n2"].isin(nodes_to_process))] # that have at least one node with missing edges
+            candidates = candidates.sort_values(by=['w'])
+
+            #print("edges" + str(edges_to_add))
+            #print("candidates" + str(candidates))
+
+            bad_edges_to_add = pd.DataFrame(columns=["n1","n2","e","w"])
+
+            while not candidates.empty and (totalWeight < 0):
+                current = candidates.iloc[0]
+                candidates = candidates.iloc[1:]
+
+                #print(len(candidates.index))
+                if (not (current["n1"] in needed_edges_by_node)) \
+                   and (not (current["n2"] in needed_edges_by_node)):
+                   continue 
+                
+                #print("add edge " + str(current))
+                #print(type(current))
+                
+                bad_edges_to_add = pd.concat([bad_edges_to_add, current.to_frame().T])
+                #print("bad " + str(bad_edges_to_add))
+                edge_weight = current["w"]
+
+                node1 = current["n1"]
+                if node1 in needed_edges_by_node:
+                    needed_edges_by_node[node1] -= 1
+                    if needed_edges_by_node[node1] == 0:
+                        needed_edges_by_node.pop(node1)
+                        
+                node2 = current["n2"]
+                if node2 in needed_edges_by_node:
+                    needed_edges_by_node[node2] -= 1
+                    if needed_edges_by_node[node2] == 0:
+                        needed_edges_by_node.pop(node2)
+                        
+                totalWeight += edge_weight
+                #print ("totalWeight: " + str(totalWeight))
+                #print ("candidates: " + str(len(candidates.index)))
+
+            if candidates.empty and totalWeight < 0:
+                edges_missing = False
+                edges_to_add = pd.concat([edges_to_add, bad_edges_to_add])
+
+                for node in nodes_in_plex:
+                    node_degree = nodes.loc[nodes["node_number"]==node,"current_degree"].values[0]
+                    if node_degree < (number_of_nodes - s):
+                        # if we can reach the node degree by only using the edges we want to add anyway, then everything is fine
+                        num_potential_edges = edges_to_add.loc[(edges_to_add["n1"]==node)|
+                                                               (edges_to_add["n2"]==node)].shape[0]
+                        new_degree = node_degree + num_potential_edges
+                        needed_edges = number_of_nodes - s - new_degree
+                        if needed_edges > 0:
+                            edges_missing = True
+                            needed_edges_by_node[node] = needed_edges
+                            break                
+
+        # if it would be a valid splex, actually merge it
+        if not edges_missing:
+            # merge them
+            nodes.loc[nodes["splex"]==n2_plex, "splex"] = n1_plex
+            # include all edges we want to add
+            for index, oedge in edges_to_add.iterrows():
+                edges.loc[(edges["n1"]==oedge["n1"]) & (edges["n2"]==oedge["n2"]), "e"] = 1
+                # update node info (degree and node impact)
+                nodes.loc[nodes["node_number"]==oedge["n1"], "current_degree"] +=1
+                nodes.loc[nodes["node_number"]==oedge["n2"], "current_degree"] +=1
+                nodes.loc[nodes["node_number"]==oedge["n1"], "node_impact"] -= abs(oedge["w"])
+                nodes.loc[nodes["node_number"]==oedge["n2"], "node_impact"] -= abs(oedge["w"])
+    print(round(time.time()-start, 2), "seconds")
+    score = edges.loc[((edges["e"]==0)&(edges["w"]<=0))| 
+                        ((edges["e"]==1)&(edges["w"]>0)), ["w"]].abs().sum()
+    return(nodes, edges, score.item())
+
+def randomized_greedy(nodes_orig, edges_orig, s, alpha=0.5, random_seed = None):
+    nodes = nodes_orig.copy()
+    edges = edges_orig.copy()
+    
+    if random_seed is not None:
+        random.seed(random_seed)
+    start = time.time()
+    
+    existing_edges = edges.loc[edges["w"]<0].sort_values("w") # this is our candidate list
+    
+    while existing_edges.shape[0]>0:
+        #build restricted candidate list
+        costs_threshold = max(existing_edges["w"]) + alpha * (min(existing_edges["w"]) - max(existing_edges["w"]))
+        rcl = existing_edges.loc[existing_edges["w"]>= costs_threshold]
+        # pick one edge at random
+        row = rcl.sample(1)
+            
+        # get plex assignment of both nodes
+        n1_plex = nodes.loc[nodes["node_number"]==row["n1"].values[0], "splex"].values[0]
+        n2_plex = nodes.loc[nodes["node_number"]==row["n2"].values[0], "splex"].values[0]
+        # all nodes that would be in the plex if we merged it
+        nodes_in_plex = nodes.loc[(nodes["splex"]==n1_plex) | (nodes["splex"] ==n2_plex), "node_number"].values
+        # all edges we would want anyway as they were in original assignment
+        edges_to_add = edges.loc[(edges["n1"].isin(nodes_in_plex)) & 
+                                        (edges["n2"].isin(nodes_in_plex)) & # only edges within the potential splex
+                                       (edges["w"]<=0) & # that we want to add anyway
+                                       (edges["e"]==0)] #that have not been added yet
+
+        number_of_nodes = len(nodes_in_plex)
+        edges_missing = False
+        needed_edges_by_node = dict()
+
+        # check if it would be a valid splex if we merge by checking node degrees
+        for node in nodes_in_plex:
+            node_degree = nodes.loc[nodes["node_number"]==node,"current_degree"].values[0]
+            if node_degree < (number_of_nodes - s):
+                # if we can reach the node degree by only using the edges we want to add anyway, then everything is fine
+                num_potential_edges = edges_to_add.loc[(edges_to_add["n1"]==node)|
+                                                             (edges_to_add["n2"]==node)].shape[0]
+                
+                needed_edges = number_of_nodes - s - node_degree - num_potential_edges
+                if needed_edges > 0:
+                    edges_missing = True
+                    needed_edges_by_node[node] = needed_edges
+                    break
+
+        # TODO: Also add 'bad' edges if it decreases total weight
+        if edges_missing:
+            totalWeight = edges_to_add["w"]
+
+
+        # if it would be a valid splex, actually merge it
+        if not edges_missing:
+            # merge them
+            nodes.loc[nodes["splex"]==n2_plex, "splex"] = n1_plex
+            # include all edges we want to add
+            for index, oedge in edges_to_add.iterrows():
+                edges.loc[(edges["n1"]==oedge["n1"]) & (edges["n2"]==oedge["n2"]), "e"] = 1
+                # update node info (degree and node impact)
+                nodes.loc[nodes["node_number"]==oedge["n1"], "current_degree"] +=1
+                nodes.loc[nodes["node_number"]==oedge["n2"], "current_degree"] +=1
+                nodes.loc[nodes["node_number"]==oedge["n1"], "node_impact"] -= abs(oedge["w"])
+                nodes.loc[nodes["node_number"]==oedge["n2"], "node_impact"] -= abs(oedge["w"])
+
+        # remove the edge from the candidate list
+        existing_edges = existing_edges.drop(existing_edges[(existing_edges.n1 == row.n1.values[0])&
+                                                            (existing_edges.n2 == row.n2.values[0])].index)
+    score = edges.loc[((edges["e"]==0)&(edges["w"]<=0))| 
+                        ((edges["e"]==1)&(edges["w"]>0)), ["w"]].abs().sum()    
+    print(round(time.time()-start, 2), "seconds")
+    return(nodes, edges, score.item())
