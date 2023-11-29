@@ -86,7 +86,7 @@ def extract1node(nodes_solution, edges_solution, score, s, step="best", random_s
                          ((tmp_edges["n2"]==current_node)&(tmp_edges["n1"]==i)), "w"]
             # adjust node impact in of both nodes
             tmp_nodes.loc[(tmp_nodes["node_number"]==i) | (tmp_nodes["node_number"]==current_node),
-                         ["node_impact"]] -= weight 
+                         ["node_impact"]] -= weight
             
         #check if it is still an splex
         plex = is_splex(tmp_nodes, plex_number = plex_number, s = s)
@@ -233,9 +233,9 @@ def construction_heuristic(nodes_orig, edges_orig, s):
         nodes_in_plex = nodes.loc[(nodes["splex"]==n1_plex) | (nodes["splex"] ==n2_plex), "node_number"].values
         # all edges we would want anyway as they were in original assignment
         edges_to_add = edges.loc[(edges["n1"].isin(nodes_in_plex)) & 
-                                        (edges["n2"].isin(nodes_in_plex)) & # only edges within the potential splex
-                                       (edges["w"]<=0) & # that we want to add anyway
-                                       (edges["e"]==0)] #that have not been added yet
+                                 (edges["n2"].isin(nodes_in_plex)) & # only edges within the potential splex
+                                 (edges["w"]<=0) & # that we want to add anyway
+                                 (edges["e"]==0)] #that have not been added yet
 
         number_of_nodes = len(nodes_in_plex)
         edges_missing = False
@@ -338,7 +338,7 @@ def construction_heuristic(nodes_orig, edges_orig, s):
     print(round(time.time()-start, 2), "seconds")
     score = edges.loc[((edges["e"]==0)&(edges["w"]<=0))| 
                         ((edges["e"]==1)&(edges["w"]>0)), ["w"]].abs().sum()
-    return(nodes, edges, score.item())
+    return (nodes, edges, score.item())
 
 def randomized_greedy(nodes_orig, edges_orig, s, alpha=0.5, random_seed = None):
     nodes = nodes_orig.copy()
@@ -528,3 +528,65 @@ def add_edge_within_plex(nodes_solution, edges_solution, score, s, step="best", 
     
     print(round(time.time()-start, 2), "seconds")            
     return (new_nodes, new_edges, best_score)
+
+class Solution:
+    def __init__(self, nodes, edges, s, weight):
+        self.nodes = nodes
+        self.edges = edges
+        self.s = s
+        self.weight = weight
+
+    def get_nodes(self):
+        return self.nodes
+    
+    def get_edges(self):
+        return self.edges
+    
+    def get_s(self):
+        return self.s
+
+    def get_weight(self):
+        return self.weight
+
+class Problem:
+    def __init__(self, path):
+        self.nodes, self.edges, self.s = create_problem_instance(path)
+
+    def get_heuristic_solution(self) -> Solution:
+        sol_nod, sol_edg, sol_weight = construction_heuristic(self.nodes, self.edges, self.s)
+        return Solution(sol_nod, sol_edg, self.s, sol_weight)
+
+    def get_randomized_solution(self) -> Solution:
+        sol_nod, sol_edg, sol_weight = randomized_greedy(self.nodes, self.edges, self.s)
+        return Solution(sol_nod, sol_edg, self.s, sol_weight)
+
+class Neighborhood: 
+    # Currently not used:
+    #def get_all_neighbors(solution: Solution):
+    #    raise NotImplementedError
+
+    #def get_random_neighbor(solution: Solution):
+    #    raise NotImplementedError
+    
+    #def get_objective(solution: Solution, neighbor_definition) -> int:
+    #    raise NotImplementedError
+
+    #def get_solution(solution:Solution, neighbor_definition) -> Solution:
+    #    raise NotImplementedError
+
+    def __init__(self, first_improvement_fun, best_improvement_fun, random_improvement_fun):
+        self.first_improvement_fun = first_improvement_fun
+        self.best_improvement_fun = best_improvement_fun
+        self.random_improvement_fun = random_improvement_fun
+
+    def get_first_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.first_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
+
+    def get_best_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.best_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
+
+    def get_random_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.random_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
