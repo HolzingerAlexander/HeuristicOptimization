@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 import random
+import math
 
 def create_problem_instance(path):
     metadata = pd.read_csv(path, sep=" ", nrows=1, header=None).iloc[0]
@@ -65,7 +66,8 @@ def extract1node(nodes_solution, edges_solution, score, s, step="best", random_s
                                          (edges_solution["n2"]==current_node)) &
                                (edges_solution["e"]==1)]
         node_neighbors = list(set(node_edges["n1"]).union(set(node_edges["n2"])))
-        node_neighbors.remove(current_node)
+        if node_neighbors: # if this node didn't form its own splex
+            node_neighbors.remove(current_node)
         
         # what would node and edge list look like if we removed the node
         tmp_nodes = nodes_solution.copy()
@@ -89,34 +91,35 @@ def extract1node(nodes_solution, edges_solution, score, s, step="best", random_s
                          ["node_impact"]] -= weight
             
         #check if it is still an splex
-        plex = is_splex(tmp_nodes, plex_number = plex_number, s = s)
-        if not isinstance(plex, (bool)): # we have to correct the splex
-            corrected_nodes = set()
-            potential_plex_nodes = list(tmp_nodes.node_number.loc[tmp_nodes["splex"]==plex_number])
-            for i in plex["node_number"]:
-                if i in corrected_nodes:
-                    continue # was already corrected when correcting another node
-                else:
-                    # get the cheapest edge we can add within the plex and add it
-                    cheapest_edge = edges.loc[((tmp_edges["n1"]==i) & (tmp_edges["n2"].isin(potential_plex_nodes)) |
-                                                  (tmp_edges["n2"]==i) & (tmp_edges["n1"].isin(potential_plex_nodes))) &
-                                                 (tmp_edges["e"]==0)].sort_values(by=['w']).iloc[:1]
-                    n1 = cheapest_edge.n1.item()
-                    n2 = cheapest_edge.n2.item()
-                    # add the cheapest edge
-                    tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
-                                 "e"] = 1
-                    # adjust node info
-                    tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
-                                  (tmp_nodes["node_number"]==n2),
-                         ["current_degree"]] += 1
-                    weight = tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
-                                 "w"].value
-                    tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
-                                  (tmp_nodes["node_number"]==n2),
-                         ["node_impact"]] += weight
-                    # update score
-                    tmp_score += weight
+        if node_neighbors: # only need to do this if the node was not alone
+            plex = is_splex(tmp_nodes, plex_number = plex_number, s = s)
+            if not isinstance(plex, (bool)): # we have to correct the splex
+                corrected_nodes = set()
+                potential_plex_nodes = list(tmp_nodes.node_number.loc[tmp_nodes["splex"]==plex_number])
+                for i in plex["node_number"]:
+                    if i in corrected_nodes:
+                        continue # was already corrected when correcting another node
+                    else:
+                        # get the cheapest edge we can add within the plex and add it
+                        cheapest_edge = edges.loc[((tmp_edges["n1"]==i) & (tmp_edges["n2"].isin(potential_plex_nodes)) |
+                                                      (tmp_edges["n2"]==i) & (tmp_edges["n1"].isin(potential_plex_nodes))) &
+                                                     (tmp_edges["e"]==0)].sort_values(by=['w']).iloc[:1]
+                        n1 = cheapest_edge.n1.item()
+                        n2 = cheapest_edge.n2.item()
+                        # add the cheapest edge
+                        tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
+                                     "e"] = 1
+                        # adjust node info
+                        tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                      (tmp_nodes["node_number"]==n2),
+                             ["current_degree"]] += 1
+                        weight = tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
+                                     "w"].value
+                        tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                      (tmp_nodes["node_number"]==n2),
+                             ["node_impact"]] += weight
+                        # update score
+                        tmp_score += weight
            
                            
         # at this point we have a valid neighbor. Now we need to check if it is better
@@ -163,7 +166,7 @@ def merge2plexes(nodes_solution, edges_solution, score, s, step="best", random_s
                         n2 = row.n2.item()
                         if (n1 in (potential_plex_nodes)) and (n2 in (potential_plex_nodes)) and row.e == 0 and row.w <=0:
 
-                            tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2)] = 1
+                            tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2), "e"] = 1
                             # update node info
                             tmp_nodes.loc[(tmp_nodes["node_number"]==n1)|(tmp_nodes["node_number"]==n2), 
                                           ["current_degree"]] +=1
@@ -503,7 +506,7 @@ def add_edge_within_plex(nodes_solution, edges_solution, score, s, step="best", 
             tmp_score = score
             
             # add the edge
-            tmp_edges.loc[(tmp_edges["n1"]==edge["n1"])&(tmp_edges["n2"]==edge["n2"])] = 1
+            tmp_edges.loc[(tmp_edges["n1"]==edge["n1"])&(tmp_edges["n2"]==edge["n2"]), "e"] = 1
             #update node infos and score
             tmp_nodes.loc[(tmp_nodes["node_number"]==edge["n1"])|(tmp_nodes["node_number"]==edge["n2"]), 
                                           ["current_degree"]] +=1
@@ -527,6 +530,157 @@ def add_edge_within_plex(nodes_solution, edges_solution, score, s, step="best", 
                     break
     
     print(round(time.time()-start, 2), "seconds")            
+    return (new_nodes, new_edges, best_score)
+
+def move1node(nodes_solution, edges_solution, score, s, step="best", random_state= 42, add_neg_edges = True):
+    "step should be best, first or random"
+    best_score = float('inf')
+    break_flag = False
+    # shuffle them, otherwise for random we will always get the first node removed
+    nodes_shuffled = nodes_solution.sample(frac=1, random_state= random_state)
+    plexes_shuffled = random.sample(list(nodes_solution["splex"].unique()), len(nodes_solution["splex"].unique()))
+    start = time.time()
+    
+    # need to search whole neighborhood
+    for index, row in nodes_shuffled.iterrows(): #loop through nodes
+        if break_flag:
+            break
+        current_node = row["node_number"]
+        plex_number = row["splex"]
+        node_edges = edges_solution.loc[((edges_solution["n1"]==current_node)|
+                                         (edges_solution["n2"]==current_node)) &
+                               (edges_solution["e"]==1)]
+        
+        # what would node and edge list look like if we removed the node
+        tmp_nodes = nodes_solution.copy()
+        tmp_edges = edges_solution.copy()
+        tmp_score = score - node_edges["w"].sum()
+        tmp_score = tmp_score.item()
+        
+        node_neighbors = list(set(node_edges["n1"]).union(set(node_edges["n2"])))
+        if node_neighbors: # if this node didn't form its own splex
+            node_neighbors.remove(current_node)
+
+        # correct info of node we want to extract
+        tmp_nodes.loc[tmp_nodes["node_number"]==current_node, ["current_degree"]] = 0
+        tmp_nodes.loc[tmp_nodes["node_number"]==current_node, ["splex"]] = max(tmp_nodes.splex)+1
+        # correct info of rest of nodes of this plex
+        tmp_nodes.loc[tmp_nodes["node_number"].isin(node_neighbors), ["current_degree"]] -=1
+        for i in node_neighbors:
+            # remove the edge
+            tmp_edges.loc[((tmp_edges["n1"]==current_node)&(tmp_edges["n2"]==i))|
+                         ((tmp_edges["n2"]==current_node)&(tmp_edges["n1"]==i)), "e"] = 0
+            weight = tmp_edges.loc[((tmp_edges["n1"]==current_node)&(tmp_edges["n2"]==i))|
+                         ((tmp_edges["n2"]==current_node)&(tmp_edges["n1"]==i)), "w"].item()
+            # adjust node impact of both nodes
+            tmp_nodes.loc[(tmp_nodes["node_number"]==i) | (tmp_nodes["node_number"]==current_node),
+                         ["node_impact"]] -= weight
+            
+        #check if it is still an splex and correct if necessary
+        if node_neighbors: # only need to do this if the node was not alone
+            plex = is_splex(tmp_nodes, plex_number = plex_number, s = s)
+            if not isinstance(plex, (bool)): # we have to correct the splex
+                corrected_nodes = set()
+                potential_plex_nodes = list(tmp_nodes.node_number.loc[tmp_nodes["splex"]==plex_number])
+                for i in plex["node_number"]:
+                    if i in corrected_nodes:
+                        continue # was already corrected when correcting another node
+                    else:
+                        # get the cheapest edge we can add within the plex and add it
+                        cheapest_edge = edges.loc[((tmp_edges["n1"]==i) & (tmp_edges["n2"].isin(potential_plex_nodes)) |
+                                                      (tmp_edges["n2"]==i) & (tmp_edges["n1"].isin(potential_plex_nodes))) &
+                                                     (tmp_edges["e"]==0)].sort_values(by=['w']).iloc[:1]
+                        n1 = cheapest_edge.n1.item()
+                        n2 = cheapest_edge.n2.item()
+                        # add the cheapest edge
+                        tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
+                                     "e"] = 1
+                        # adjust node info
+                        tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                      (tmp_nodes["node_number"]==n2),
+                             ["current_degree"]] += 1
+                        weight = tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2),
+                                     "w"].item()
+                        tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                      (tmp_nodes["node_number"]==n2),
+                             ["node_impact"]] += weight
+                        # update score
+                        tmp_score += weight
+        
+        # now we can see to which other plex to move it
+        for plex_to in plexes_shuffled:
+            if plex_to == plex_number:
+                continue #this is the plex we just removed the node from
+            else:
+                tmp_nodes_inner = tmp_nodes.copy()
+                tmp_edges_inner = tmp_edges.copy()
+                tmp_score_inner = tmp_score
+                # merge them
+                #tmp_nodes_inner.loc[tmp_nodes_inner["splex"]==plex_to, ["splex"]] = plex_to
+                tmp_nodes_inner.loc[tmp_nodes_inner["node_number"]==current_node, ["splex"]] = plex_to
+                deg_needed = tmp_nodes_inner.loc[tmp_nodes_inner["splex"]==plex_to].shape[0]-s
+                potential_plex_nodes = list(tmp_nodes_inner.node_number.loc[tmp_nodes_inner["splex"]==plex_to])
+                # add all edges we want to have anyway
+                if add_neg_edges:
+                    for index, row in tmp_edges_inner.iterrows():
+                        n1 = row.n1.item()
+                        n2 = row.n2.item()
+                        w = row.w.item()
+                        if (n1 in (potential_plex_nodes)) and (n2 in (potential_plex_nodes)) and row.e == 0 and row.w <=0:
+
+                            tmp_edges_inner.loc[(tmp_edges_inner["n1"]==n1)&(tmp_edges_inner["n2"]==n2), "e"] = 1
+                            # update node info
+                            tmp_nodes_inner.loc[(tmp_nodes_inner["node_number"]==n1)|(tmp_nodes_inner["node_number"]==n2), 
+                                          ["current_degree"]] +=1
+                            tmp_nodes_inner.loc[(tmp_nodes_inner["node_number"]==n1) | (tmp_nodes_inner["node_number"]==n2),
+                                     ["node_impact"]] += w 
+                            # update score
+                            tmp_score_inner += w
+                        
+                #check if it is still an splex
+                plex = is_splex(tmp_nodes_inner, plex_number = plex_to, s = s)
+                if not isinstance(plex, (bool)): # we have to correct the splex
+                    corrected_nodes = set()
+                    for i in list(plex["node_number"]): # for all problem nodes while they still need higher node degree
+                        while tmp_nodes_inner.loc[tmp_nodes_inner["node_number"]==i, "current_degree"].item() < deg_needed:
+                            # get the cheapest edge we can add within the plex
+                            potential_edges = tmp_edges_inner.loc[(((tmp_edges_inner["n1"]==i) & 
+                                                                  (tmp_edges_inner["n2"].isin(potential_plex_nodes))) |
+                                                                 ((tmp_edges_inner["n2"]==i) & 
+                                                                  (tmp_edges_inner["n1"].isin(potential_plex_nodes)))) &
+                                                         (tmp_edges_inner["e"]==0)].sort_values(by=['w'])
+
+                            cheapest_edge = potential_edges.iloc[:1]
+                            n1 = cheapest_edge.n1.item()
+                            n2 = cheapest_edge.n2.item()
+
+                            # add the cheapest edge
+                            tmp_edges_inner.loc[((tmp_edges_inner["n1"]==n1)&(tmp_edges_inner["n2"]==n2)),"e"] = 1
+                            # adjust node info
+                            tmp_nodes_inner.loc[(tmp_nodes_inner["node_number"]==n1) | (tmp_nodes_inner["node_number"]==n2),
+                                 ["current_degree"]] += 1
+                            weight = tmp_edges_inner.loc[(tmp_edges_inner["n1"]==n1) & (tmp_edges_inner["n2"]==n2),
+                                         "w"].item()
+                            tmp_nodes_inner.loc[(tmp_nodes["node_number"]==n1) | (tmp_nodes_inner["node_number"]==n2),
+                                 ["node_impact"]] += weight
+                            # update score
+                            tmp_score_inner += weight     
+                           
+                # at this point we have a valid neighbor. Now we need to check if it is better
+                if tmp_score_inner <= best_score:
+                    #print("found new best score")
+                    best_score = tmp_score_inner
+                    new_nodes = tmp_nodes_inner
+                    new_edges = tmp_edges_inner
+
+                    if (step == "random"):  
+                        break_flag = True
+                        break
+                    if ((step == "first") and (best_score < score)):   
+                        break_flag = True
+                        break
+    
+    #print(round(time.time()-start, 2), "seconds")
     return (new_nodes, new_edges, best_score)
 
 class Solution:
@@ -590,3 +744,42 @@ class Neighborhood:
     def get_random_improvement(self, solution: Solution) -> Solution:
         nodes, edges, weight = self.random_improvement_fun(solution)
         return Solution(nodes, edges, solution.get_s(), weight)
+
+def SA(solution: Solution, T_init = None, cooling = 0.95, random_state = 42): #, equilibrium, neighborhood, stopping_criteria
+    if random_state != None:
+        random.seed(random_state)
+    t = 0
+    if T_init == None:
+        T = solution.get_edges()["w"].abs().sum() # f_max-f_min but f_min = 0
+    else:
+        T = T_init
+        
+    stopping_criteria = T/2
+    
+    global_best_solution = solution
+    current_solution = solution
+    
+    while T > stopping_criteria:
+        while t<20:
+            nodes, edges, weight = move1node(current_solution.get_nodes(),
+                                        current_solution.get_edges(),
+                                        current_solution.get_weight(),
+                                        current_solution.get_s(), step = "random", random_state = None,add_neg_edges = True)
+            new_solution = Solution(nodes, edges, solution.get_s(), weight)
+            if new_solution.get_weight() < current_solution.get_weight():
+                current_solution = new_solution
+            else:
+                metropolis = math.exp(-abs(new_solution.get_weight()-current_solution.get_weight())/T)
+                P = random.uniform(0,1)
+                if P < metropolis: # accept solution anyway
+                    current_solution = new_solution
+
+            # if the (possibly new found) solution is better than the global best
+            if current_solution.get_weight() < global_best_solution.get_weight():
+                global_best_solution = current_solution
+            t+=1
+        # cool off
+        print("current score", str(current_solution.get_weight()))
+        T = T*cooling
+        t = 0
+    return global_best_solution
