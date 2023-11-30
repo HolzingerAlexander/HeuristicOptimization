@@ -532,13 +532,75 @@ def add_edge_within_plex(nodes_solution, edges_solution, score, s, step="best", 
     print(round(time.time()-start, 2), "seconds")            
     return (new_nodes, new_edges, best_score)
 
-def move1node(nodes_solution, edges_solution, score, s, step="best", random_state= 42, add_neg_edges = True):
+
+class Solution:
+    def __init__(self, nodes, edges, s, weight):
+        self.nodes = nodes
+        self.edges = edges
+        self.s = s
+        self.weight = weight
+
+    def get_nodes(self):
+        return self.nodes
+    
+    def get_edges(self):
+        return self.edges
+    
+    def get_s(self):
+        return self.s
+
+    def get_weight(self):
+        return self.weight
+
+class Problem:
+    def __init__(self, path):
+        self.nodes, self.edges, self.s = create_problem_instance(path)
+
+    def get_heuristic_solution(self) -> Solution:
+        sol_nod, sol_edg, sol_weight = construction_heuristic(self.nodes, self.edges, self.s)
+        return Solution(sol_nod, sol_edg, self.s, sol_weight)
+
+    def get_randomized_solution(self) -> Solution:
+        sol_nod, sol_edg, sol_weight = randomized_greedy(self.nodes, self.edges, self.s)
+        return Solution(sol_nod, sol_edg, self.s, sol_weight)
+
+class Neighborhood: 
+    # Currently not used:
+    #def get_all_neighbors(solution: Solution):
+    #    raise NotImplementedError
+
+    #def get_random_neighbor(solution: Solution):
+    #    raise NotImplementedError
+    
+    #def get_objective(solution: Solution, neighbor_definition) -> int:
+    #    raise NotImplementedError
+
+    #def get_solution(solution:Solution, neighbor_definition) -> Solution:
+    #    raise NotImplementedError
+
+    def __init__(self, first_improvement_fun, best_improvement_fun, random_improvement_fun):
+        self.first_improvement_fun = first_improvement_fun
+        self.best_improvement_fun = best_improvement_fun
+        self.random_improvement_fun = random_improvement_fun
+
+    def get_first_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.first_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
+
+    def get_best_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.best_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
+
+    def get_random_improvement(self, solution: Solution) -> Solution:
+        nodes, edges, weight = self.random_improvement_fun(solution)
+        return Solution(nodes, edges, solution.get_s(), weight)
+
+def move1node(nodes_solution, edges_solution, score, s, step="best", random_state= 42, add_neg_edges = True, print_info = True):
     "step should be best, first or random"
     best_score = float('inf')
     break_flag = False
     # shuffle them, otherwise for random we will always get the first node removed
     nodes_shuffled = nodes_solution.sample(frac=1, random_state= random_state)
-    plexes_shuffled = random.sample(list(nodes_solution["splex"].unique()), len(nodes_solution["splex"].unique()))
     start = time.time()
     
     # need to search whole neighborhood
@@ -606,8 +668,44 @@ def move1node(nodes_solution, edges_solution, score, s, step="best", random_stat
                              ["node_impact"]] += weight
                         # update score
                         tmp_score += weight
-        
+            
+            # check if we can remove bad edges without breaking the s-plex condition
+            deg_needed = tmp_nodes.loc[tmp_nodes["splex"]==plex_number].shape[0] -s
+            high_deg = list(tmp_nodes.loc[(tmp_nodes["splex"]==plex_number)&(tmp_nodes["current_degree"]>deg_needed), "node_number"])
+            # get the "bad" existing edges of all nodes with too high degree
+            potential_edges = tmp_edges.loc[(tmp_edges["n1"].isin(high_deg)) & (tmp_edges["n2"].isin(high_deg)) & 
+                                            (tmp_edges["e"]==1) &
+                                           (tmp_edges["w"]>0)].sort_values(by=["w"], ascending = False)
+            for index, row in potential_edges.iterrows():
+                n1 = row.n1.item()
+                n2 = row.n2.item()
+                w = row.w.item()
+                if not high_deg: 
+                    break
+                    # as long as there are still edges with too high degree
+                if (n1 in high_deg) and (n2 in high_deg):
+                    # we can remove this edge
+                    tmp_edges.loc[(tmp_edges["n1"]==n1)&(tmp_edges["n2"]==n2), "e"]=0
+                    #update nodes and score
+                    tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                  (tmp_nodes["node_number"]==n2),
+                                        ["current_degree"]] -= 1
+                    tmp_nodes.loc[(tmp_nodes["node_number"]==n1) | 
+                                      (tmp_nodes["node_number"]==n2),
+                                    ["node_impact"]] -= w
+                    tmp_score -= w
+                        
+                    # check if the degrees are still too high
+                    if tmp_nodes.loc[(tmp_nodes["node_number"]==n1), "current_degree"].item() == deg_needed:
+                        high_deg.remove(n1)
+                    if tmp_nodes.loc[(tmp_nodes["node_number"]==n2), "current_degree"].item() == deg_needed:
+                        high_deg.remove(n2)
+
+                
         # now we can see to which other plex to move it
+        # we shuffle all the plex numbers we currently have. This way, node can stay in the one we jsut created and stay
+        # its own plex if it is better to do it like that.
+        plexes_shuffled = random.sample(list(tmp_nodes["splex"].unique()), len(tmp_nodes["splex"].unique()))
         for plex_to in plexes_shuffled:
             if plex_to == plex_number:
                 continue #this is the plex we just removed the node from
@@ -668,7 +766,8 @@ def move1node(nodes_solution, edges_solution, score, s, step="best", random_stat
                            
                 # at this point we have a valid neighbor. Now we need to check if it is better
                 if tmp_score_inner <= best_score:
-                    #print("found new best score")
+                    if print_info:
+                        print("found new best score")
                     best_score = tmp_score_inner
                     new_nodes = tmp_nodes_inner
                     new_edges = tmp_edges_inner
@@ -680,72 +779,11 @@ def move1node(nodes_solution, edges_solution, score, s, step="best", random_stat
                         break_flag = True
                         break
     
-    #print(round(time.time()-start, 2), "seconds")
-    return (new_nodes, new_edges, best_score)
-
-class Solution:
-    def __init__(self, nodes, edges, s, weight):
-        self.nodes = nodes
-        self.edges = edges
-        self.s = s
-        self.weight = weight
-
-    def get_nodes(self):
-        return self.nodes
+    if print_info:
+        print(round(time.time()-start, 2), "seconds")
+    return (new_nodes, new_edges, best_score)    
     
-    def get_edges(self):
-        return self.edges
-    
-    def get_s(self):
-        return self.s
-
-    def get_weight(self):
-        return self.weight
-
-class Problem:
-    def __init__(self, path):
-        self.nodes, self.edges, self.s = create_problem_instance(path)
-
-    def get_heuristic_solution(self) -> Solution:
-        sol_nod, sol_edg, sol_weight = construction_heuristic(self.nodes, self.edges, self.s)
-        return Solution(sol_nod, sol_edg, self.s, sol_weight)
-
-    def get_randomized_solution(self) -> Solution:
-        sol_nod, sol_edg, sol_weight = randomized_greedy(self.nodes, self.edges, self.s)
-        return Solution(sol_nod, sol_edg, self.s, sol_weight)
-
-class Neighborhood: 
-    # Currently not used:
-    #def get_all_neighbors(solution: Solution):
-    #    raise NotImplementedError
-
-    #def get_random_neighbor(solution: Solution):
-    #    raise NotImplementedError
-    
-    #def get_objective(solution: Solution, neighbor_definition) -> int:
-    #    raise NotImplementedError
-
-    #def get_solution(solution:Solution, neighbor_definition) -> Solution:
-    #    raise NotImplementedError
-
-    def __init__(self, first_improvement_fun, best_improvement_fun, random_improvement_fun):
-        self.first_improvement_fun = first_improvement_fun
-        self.best_improvement_fun = best_improvement_fun
-        self.random_improvement_fun = random_improvement_fun
-
-    def get_first_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.first_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
-
-    def get_best_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.best_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
-
-    def get_random_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.random_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
-
-def SA(solution: Solution, T_init = None, cooling = 0.95, random_state = 42): #, equilibrium, neighborhood, stopping_criteria
+def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, random_state = 42): #stopping_criteria
     if random_state != None:
         random.seed(random_state)
     t = 0
@@ -753,26 +791,38 @@ def SA(solution: Solution, T_init = None, cooling = 0.95, random_state = 42): #,
         T = solution.get_edges()["w"].abs().sum() # f_max-f_min but f_min = 0
     else:
         T = T_init
-        
-    stopping_criteria = T/2
+    
+    # we can make this a parameter
+    stopping_criteria = T/4
     
     global_best_solution = solution
     current_solution = solution
     
+    objective_trajectory = []
+    rejected =[]
+    temperature =[]
     while T > stopping_criteria:
-        while t<20:
+        while t<equilibrium:
             nodes, edges, weight = move1node(current_solution.get_nodes(),
                                         current_solution.get_edges(),
                                         current_solution.get_weight(),
-                                        current_solution.get_s(), step = "random", random_state = None,add_neg_edges = True)
+                                        current_solution.get_s(), step = "random", random_state = None,add_neg_edges = True,
+                                            print_info = False)
             new_solution = Solution(nodes, edges, solution.get_s(), weight)
             if new_solution.get_weight() < current_solution.get_weight():
                 current_solution = new_solution
+                rejected.append(True)
             else:
                 metropolis = math.exp(-abs(new_solution.get_weight()-current_solution.get_weight())/T)
                 P = random.uniform(0,1)
                 if P < metropolis: # accept solution anyway
                     current_solution = new_solution
+                    rejected.append(False)
+                else:
+                    rejected.append(True)
+                    
+            objective_trajectory.append(current_solution.get_weight())
+            temperature.append(T)
 
             # if the (possibly new found) solution is better than the global best
             if current_solution.get_weight() < global_best_solution.get_weight():
@@ -782,4 +832,4 @@ def SA(solution: Solution, T_init = None, cooling = 0.95, random_state = 42): #,
         print("current score", str(current_solution.get_weight()))
         T = T*cooling
         t = 0
-    return global_best_solution
+    return global_best_solution, objective_trajectory, temperature, rejected
