@@ -561,32 +561,35 @@ class Problem:
         return Solution(sol_nod, sol_edg, self.s, sol_weight)
 
 class Neighborhood: 
-    # Currently not used:
-    #def get_all_neighbors(solution: Solution):
-    #    raise NotImplementedError
+    def __init__(self, improvement_fun):
+        self.improvement_fun = improvement_fun
 
-    #def get_random_neighbor(solution: Solution):
-    #    raise NotImplementedError
+    def get_improvement(self, solution: Solution, improvement_type: str):
+        nodes, edges, weight = self.improvement_fun(solution, improvement_type)
+        return Solution(nodes, edges, solution.get_s(), weight)
     
-    #def get_objective(solution: Solution, neighbor_definition) -> int:
-    #    raise NotImplementedError
+from enum import Enum
 
-    #def get_solution(solution:Solution, neighbor_definition) -> Solution:
-    #    raise NotImplementedError
+class ImprovementType(Enum):
+    FIRST = 1
+    BEST = 2
+    RANDOM = 3
 
-    def __init__(self, first_improvement_fun, best_improvement_fun, random_improvement_fun):
-        self.first_improvement_fun = first_improvement_fun
-        self.best_improvement_fun = best_improvement_fun
-        self.random_improvement_fun = random_improvement_fun
-
-    def get_first_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.first_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
-
-    def get_best_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.best_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
-
-    def get_random_improvement(self, solution: Solution) -> Solution:
-        nodes, edges, weight = self.random_improvement_fun(solution)
-        return Solution(nodes, edges, solution.get_s(), weight)
+def local_search(solution: Solution, neighborhood: Neighborhood, improve: ImprovementType) -> Solution:
+    match improve:
+        case ImprovementType.FIRST:
+            return neighborhood.get_improvement(solution, "first")
+        case ImprovementType.BEST:
+            return neighborhood.get_improvement(solution, "best")
+        case ImprovementType.RANDOM:
+            return neighborhood.get_improvement(solution, "random")
+        
+def grasp(problem: Problem, neighborhood: Neighborhood, times: int) -> Solution:
+    best_solution: Solution = None
+    for i in range(times):
+        current_solution = problem.get_randomized_solution()
+        local_optimum = local_search(current_solution, neighborhood, ImprovementType.BEST)
+        if (best_solution == None) or (local_optimum.get_weight() < best_solution.get_weight()):
+            best_solution = local_optimum
+    
+    return best_solution
