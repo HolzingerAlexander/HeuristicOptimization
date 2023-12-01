@@ -1,0 +1,75 @@
+Output 1:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': None, 'stopping_criteria': 'finalT', 'T_fin_frac': 8, 'tau': 10}
+Score: 13161
+runtime: 837.781920671463
+-----------
+Output 2:
+Parameters: {'equilibrium': 50, 'cooling': 0.5, 'T_init': None, 'stopping_criteria': 'finalT', 'T_fin_frac': 8, 'tau': 10}
+Score: 13161
+runtime: 313.2705581188202
+-----------
+Output 3:
+Parameters: {'equilibrium': 50, 'cooling': 0.5, 'T_init': 13000, 'stopping_criteria': 'finalT', 'T_fin_frac': 8, 'tau': 10}
+Score: 13161
+runtime: 312.4592545032501
+-----------
+Output 4:
+Parameters: {'equilibrium': 50, 'cooling': 0.5, 'T_init': 5000, 'stopping_criteria': 'finalT', 'T_fin_frac': 4, 'tau': 5}
+Score: 13161
+runtime: 215.685240983963
+-----------
+Output 5:
+Parameters: {'equilibrium': 50, 'cooling': 0.5, 'T_init': 5000, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 13116
+runtime: 646.8696517944336
+-----------
+Output 6:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 2500, 'stopping_criteria': 'finalT', 'T_fin_frac': 4, 'tau': 5}
+Score: 12680
+runtime: 532.0502624511719
+-----------
+Output 7:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 1000, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 13161
+runtime: 624.0888421535492
+-----------
+Output 8:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 1000, 'stopping_criteria': 'finalT', 'T_fin_frac': 8, 'tau': 5}
+Score: 13161
+runtime: 837.866201877594
+-----------
+Output 9:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 500, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 13161
+runtime: 647.4996857643127
+-----------
+Output 10:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 250, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 13161
+runtime: 646.2953255176544
+-----------
+Output 11:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 250, 'stopping_criteria': 'finalT', 'T_fin_frac': 4, 'tau': 5}
+Score: 13161
+runtime: 539.3462955951691
+-----------
+Output 12:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 50, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 11002
+runtime: 900.170835018158
+-----------
+Output 13:
+Parameters: {'equilibrium': 50, 'cooling': 0.75, 'T_init': 100, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 5}
+Score: 10809
+runtime: 901.4110975265503
+-----------
+Output 14:
+Parameters: {'equilibrium': 50, 'cooling': 0.95, 'T_init': 50, 'stopping_criteria': 'noImprovement', 'T_fin_frac': 4, 'tau': 8}
+Score: 10944
+runtime: 900.0465912818909
+-----------
+Output 15:
+Parameters: {'equilibrium': 50, 'cooling': 0.95, 'T_init': 100, 'stopping_criteria': 'finalT', 'T_fin_frac': 8, 'tau': 5}
+Score: 12228
+runtime: 905.7834794521332
+-----------
