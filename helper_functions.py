@@ -334,12 +334,7 @@ def randomized_greedy(nodes_orig, edges_orig, s, alpha=0.5, random_seed = None):
         # pick one edge at random
         row = rcl.sample(1)
 
-        print(type(row))
-        print(row)
-        print(type(edges))
-        print(edges)
-
-        if edges.loc[(edges["n1"]==row["n1"]) & (edges["n2"]==row["n2"]), "e"].values[0] == 1:
+        if edges.loc[(edges["n1"]==row["n1"].values[0]) & (edges["n2"]==row["n2"].values[0]), "e"].values[0] == 1:
             print(iteration)
             iteration += 1
             continue
@@ -480,7 +475,7 @@ def remove_edge(nodes_solution, edges_solution, score, s, step="best", random_st
         tmp_score = score
 
         # remove the edge
-        tmp_edges.loc[(tmp_edges["n1"]==edge["n1"])&(tmp_edges["n2"]==edge["n2"])] = 0
+        tmp_edges.loc[(tmp_edges["n1"]==edge["n1"])&(tmp_edges["n2"]==edge["n2"]), "e"] = 0
         #update node infos and score
         tmp_nodes.loc[(tmp_nodes["node_number"]==edge["n1"])|(tmp_nodes["node_number"]==edge["n2"]), 
                                           ["current_degree"]] -=1
@@ -656,11 +651,39 @@ def local_search(solution: Solution, neighborhood: Neighborhood, improve: Improv
     
     return current_solution
 
-def grasp(problem: Problem, neighborhood: Neighborhood, times: int) -> Solution:
+def vnd(solution: Solution, neighborhoods: list[Neighborhood], max_minutes = 2) -> Solution:
+    current_best: Solution = solution
+    
+    start = time.time()
+
+    i = 0 # First neighborhood
+    while i < len(neighborhoods):
+        current_neighborhood: Neighborhood = neighborhoods[i]
+        local_optimum = current_neighborhood.get_improvement(current_best, "first")
+
+        print("i: " + str(i) + ", " + str(local_optimum.get_weight()))
+        if not valid(local_optimum):
+            break
+            
+        if not consistent(local_optimum):
+            break
+
+        if local_optimum.get_weight() < current_best.get_weight():
+            current_best = local_optimum
+            i = 0
+        else:
+            i += 1
+        print((time.time()-start))
+        if (time.time()-start) > (max_minutes * 60):
+            break
+
+    return current_best
+
+def grasp(problem: Problem, neighborhoods: list[Neighborhood], times: int) -> Solution:
     best_solution: Solution = None
     for i in range(times):
         current_solution = problem.get_randomized_solution()
-        local_optimum = local_search(current_solution, neighborhood, ImprovementType.BEST)
+        local_optimum = vnd(current_solution, neighborhoods, 60)
         if (best_solution == None) or (local_optimum.get_weight() < best_solution.get_weight()):
             best_solution = local_optimum
     return best_solution
