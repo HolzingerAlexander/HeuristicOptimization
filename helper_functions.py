@@ -205,7 +205,7 @@ def construction_heuristic(nodes_orig, edges_orig, s, number_of_exisisting_edges
     for _, row in existing_edges.iterrows():
         # check if this edge was already added, then we can continue to next one
         if edges.loc[(edges["n1"]==row["n1"]) & (edges["n2"]==row["n2"]), "e"].values[0] == 1:
-            print(iteration)
+            #print(iteration)
             iteration += 1
             continue
         
@@ -306,7 +306,7 @@ def construction_heuristic(nodes_orig, edges_orig, s, number_of_exisisting_edges
 
             last_success = iteration
 
-        print(iteration)
+        #print(iteration)
         iteration += 1
             
     print(round(time.time()-start, 2), "seconds")
@@ -853,7 +853,8 @@ def move1node(nodes_solution, edges_solution, score, s, step="best", random_stat
         print(round(time.time()-start, 2), "seconds")
     return (new_nodes, new_edges, best_score)    
     
-def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, random_state = 42): #stopping_criteria
+def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, stopping_criteria = "finalT", T_fin_frac = 16, tau=10,
+       random_state = 42):
     if random_state != None:
         random.seed(random_state)
     t = 0
@@ -862,16 +863,22 @@ def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, ran
     else:
         T = T_init
     
-    # we can make this a parameter
-    stopping_criteria = T/4
-    
+    if stopping_criteria == "finalT":
+        T_fin = T/T_fin_frac
+    else:
+        T_fin = float('-inf')
+        
+    if stopping_criteria != "noImprovement":
+        tau = float('inf')
+        
     global_best_solution = solution
     current_solution = solution
+    tmp_changes_since_last_improvement = 0
     
     objective_trajectory = []
     rejected =[]
     temperature =[]
-    while T > stopping_criteria:
+    while (T > T_fin) and (tmp_changes_since_last_improvement <= tau):
         while t<equilibrium:
             nodes, edges, weight = move1node(current_solution.get_nodes(),
                                         current_solution.get_edges(),
@@ -881,7 +888,7 @@ def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, ran
             new_solution = Solution(nodes, edges, solution.get_s(), weight)
             if new_solution.get_weight() < current_solution.get_weight():
                 current_solution = new_solution
-                rejected.append(True)
+                rejected.append(False)
             else:
                 metropolis = math.exp(-abs(new_solution.get_weight()-current_solution.get_weight())/T)
                 P = random.uniform(0,1)
@@ -897,10 +904,12 @@ def SA(solution: Solution, T_init = None, equilibrium = 200, cooling = 0.75, ran
             # if the (possibly new found) solution is better than the global best
             if current_solution.get_weight() < global_best_solution.get_weight():
                 global_best_solution = current_solution
+                tmp_changes_since_last_improvement = 0
             t+=1
         # cool off
-        print("current score", str(current_solution.get_weight()))
+        #print("current score", str(current_solution.get_weight()))
         T = T*cooling
+        tmp_changes_since_last_improvement += 1
         t = 0
     return global_best_solution, objective_trajectory, temperature, rejected
 
