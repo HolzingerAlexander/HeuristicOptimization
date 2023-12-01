@@ -651,7 +651,7 @@ def local_search(solution: Solution, neighborhood: Neighborhood, improve: Improv
     
     return current_solution
 
-def vnd(solution: Solution, neighborhoods: list[Neighborhood], max_minutes = 2) -> Solution:
+def vnd(solution: Solution, neighborhoods: list[Neighborhood], max_minutes = 15) -> Solution:
     current_best: Solution = solution
     
     start = time.time()
@@ -683,7 +683,7 @@ def grasp(problem: Problem, neighborhoods: list[Neighborhood], times: int) -> So
     best_solution: Solution = None
     for i in range(times):
         current_solution = problem.get_randomized_solution()
-        local_optimum = vnd(current_solution, neighborhoods, 60)
+        local_optimum = vnd(current_solution, neighborhoods, 15)
         if (best_solution == None) or (local_optimum.get_weight() < best_solution.get_weight()):
             best_solution = local_optimum
     return best_solution
