@@ -304,10 +304,9 @@ def construction_heuristic(nodes_orig, edges_orig, s, number_of_exisisting_edges
                 nodes.loc[nodes["node_number"]==oedge["n1"], "node_impact"] -= abs(oedge["w"])
                 nodes.loc[nodes["node_number"]==oedge["n2"], "node_impact"] -= abs(oedge["w"])
 
-                added_edges += 1
             last_success = iteration
 
-        print(str(iteration) + " " + str(added_edges))
+        print(iteration)
         iteration += 1
             
     print(round(time.time()-start, 2), "seconds")
@@ -335,12 +334,17 @@ def randomized_greedy(nodes_orig, edges_orig, s, alpha=0.5, random_seed = None):
         # pick one edge at random
         row = rcl.sample(1)
 
+        print(type(row))
+        print(row)
+        print(type(edges))
+        print(edges)
+
         if edges.loc[(edges["n1"]==row["n1"]) & (edges["n2"]==row["n2"]), "e"].values[0] == 1:
             print(iteration)
             iteration += 1
             continue
         
-        if iteration - last_success > 2000: #((number_of_exisisting_edges - added_edges) / 2):
+        if iteration - last_success > 1000: #((number_of_exisisting_edges - added_edges) / 2):
             break
             
         # get plex assignment of both nodes
