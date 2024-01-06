@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import time
 import random
+from itertools import combinations
 
 def create_problem_instance(path):
     metadata = pd.read_csv(path, sep=" ", nrows=1, header=None).iloc[0]
@@ -54,6 +55,38 @@ def get_edge_index(a, b, n) -> int:
     else:
         raise ValueError("both nodes have the same index")
 
+        
+def add_good_edges(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, plex_number):
+    # get all nodes from that plex
+    nodes_in_plex = np.where(plex_assignment == plex_number)[0]+1
+    # get all edges (i.e. node combinations) from that plex
+    edge_combs = list(combinations(nodes_in_plex, 2))
+    # get their edge_index
+    edge_index_tmp = np.fromiter((get_edge_index(b[0],b[1],len(node_impact)) for b in edge_combs), "int64")
+    # only get the ones that are not yet used and have a negative/neutral weight
+    edge_index = edge_index_tmp[(edge_assignment[edge_index_tmp]==0) & (edge_weights[edge_index_tmp]<=0)]
+    
+    if len(edge_index)>0: #only need to do the next steps if there are actually edges to add
+        # get corresponding node number, so we can adjust the node info later on
+        edge_combs = [
+            edge_combs[i] for i in range(len(edge_combs)) 
+            if edge_assignment[edge_index_tmp][i] == 0 and edge_weights[edge_index_tmp][i] <= 0
+        ]
+        # split the edge_combinations into from and to nodes for easier handling
+        from_nodes = np.array([combo[0] for combo in edge_combs])
+        to_nodes = np.array([combo[1] for combo in edge_combs])
+
+        ### add them to plex ###
+        # change edge_assignment 
+        edge_assignment[edge_index]=1
+        # change node_degree of both ends of the edge
+        np.add.at(node_degree, (from_nodes-1), 1)
+        np.add.at(node_degree, (to_nodes-1), 1)
+        # change node_impact of both ends of the edge
+        np.add.at(node_impact, (from_nodes-1), edge_weights[edge_index])
+        np.add.at(node_impact, (to_nodes-1), edge_weights[edge_index])
+        
+
 def repair_splex(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, plex_number, s, problem_nodes):
     nodes_in_plex = np.where(plex_assignment == plex_number)[0]+1
     # shuffe problem nodes, so they are not always repaired in the same order
@@ -102,6 +135,8 @@ def repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edg
     all_plexes = np.unique(plex_assignment)
     
     for plex in all_plexes:
+        # add all edges we want to have anyway
+        add_good_edges(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, plex_number = plex)
         # check if it is a valid splex
         valid_plex = is_splex(node_degree, plex_assignment, plex_number = plex, s=s)
         if not isinstance(valid_plex, (bool)):
