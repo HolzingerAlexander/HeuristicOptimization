@@ -30,10 +30,12 @@ def create_problem_instance(path):
     edges['w'] = edges['w'] * (1-(edges['e']*2))
     edges['e'] = 0
     
+    edge_n1 = edges["n1"].copy().to_numpy()
+    edge_n2 = edges["n2"].copy().to_numpy()
     edge_weights = edges["w"].copy().to_numpy()
     edge_assignment = edges["e"].copy().to_numpy()
 
-    return nodes, node_impact, node_degree, plex_assignment, edges, edge_weights, edge_assignment, s, n, m
+    return node_impact, node_degree, plex_assignment, edge_n1, edge_n2, edge_weights, edge_assignment, s, n, m
     
 def is_splex(node_degree, plex_assignment, plex_number, s) -> bool | np.ndarray:
     
