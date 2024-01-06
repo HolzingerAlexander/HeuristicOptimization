@@ -40,7 +40,8 @@ def write_solution(constr_edges, instance, algorithm = "construction"):
     f.write(instance+"\n")
     f.close()
     final_solution.to_csv(file, mode='a', index=False, header=False, sep = " ")
- 
+
+    
 def is_splex(nodes, plex_number, s) -> bool | pd.DataFrame:
     splex = nodes.loc[nodes["splex"] == plex_number]
     min_degree = len(splex.index) - s
