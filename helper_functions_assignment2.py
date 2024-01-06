@@ -36,6 +36,24 @@ def create_problem_instance(path):
     edge_assignment = edges["e"].copy().to_numpy()
 
     return node_impact, node_degree, plex_assignment, edge_n1, edge_n2, edge_weights, edge_assignment, s, n, m
+
+def write_solution(edge_assignment, instance, edge_weights, edges_n1, edges_n2, algorithm = "construction"):
+    file="output/"+instance+ "_"+algorithm+".txt"
+    
+    
+    constr_edges = pd.DataFrame({'n1': edges_n1, 
+                                 'n2': edges_n2,
+                                'w': edge_weights,
+                                'e': edge_assignment})
+
+    final_solution = constr_edges.loc[((constr_edges["e"]==0)&(constr_edges["w"]<=0))|
+                                ((constr_edges["e"]==1)&(constr_edges["w"]>0)), ["n1", "n2"]]
+    
+    f = open(file, "w") 
+    f.write(instance+"\n")
+    f.close()
+    final_solution.to_csv(file, mode='a', index=False, header=False, sep = " ")
+    
     
 def is_splex(node_degree, plex_assignment, plex_number, s) -> bool | np.ndarray:
     
@@ -144,3 +162,98 @@ def repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edg
         if not isinstance(valid_plex, (bool)):
             repair_splex(node_impact, node_degree, plex_assignment, 
                          edge_weights, edge_assignment, plex_number=plex, s=s, problem_nodes=valid_plex)
+            
+class GA_solution:
+    def __init__(self, plex_assignment, edge_assignment, score, fitness):
+        self.plex_assignment = plex_assignment
+        self.edge_assignment = edge_assignment
+        self.score = score
+        self.fitness = fitness
+        
+def estimate_plex_costs(node_to_check, plex_assignment, edge_weights, plex_number, s):
+    nodes_in_plex = np.where(plex_assignment == plex_number)[0]+1
+    
+    # get all edges from that node to that plex
+    # don't need to filter further as they should all be unassigned
+    edge_index = np.fromiter((get_edge_index(node_to_check,b,len(plex_assignment)) for b in nodes_in_plex), 
+                                 nodes_in_plex.dtype)
+    
+    # get the (current size of plex)+1-s cheapest edges
+    edges_needed = len(nodes_in_plex)+1-s
+    order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+    # these are the indices of the cheapest edges from our current node to another one within the plex
+    cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+    
+    # sum up weights of cheapest edges
+    return sum(edge_weights[cheapest_edges_index])
+
+def assignment_to_solution(plex_assignment, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s):
+    node_impact = node_impact_orig.copy()
+    node_degree = node_degree_orig.copy()
+    edge_assignment = edge_assignment_orig.copy()
+    
+    repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, s)
+    score = sum(node_impact)/2
+    fitness = sum(abs(edge_weights))-score
+
+    solution = GA_solution(plex_assignment, edge_assignment, score, fitness)
+    
+    return solution
+
+def generate_rand_pop(pop_size, init_no_plexes, node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s):
+    n = len(node_impact_orig)
+    population = []
+    for i in range(pop_size):  # Generate 10 random solutions for demonstration
+        # make random plex assignment
+        plex_assignment = np.random.choice(init_no_plexes, n) #np.range(n) of size n (second is the size)
+        solution = assignment_to_solution(plex_assignment, node_impact_orig, 
+                                          node_degree_orig, edge_weights, edge_assignment_orig, s)
+        population.append(solution)
+    return population
+
+def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
+    # the parents should be plex assignments and the function returns a plex assignment
+
+    # Create a new empty solution (empty, when plex_assignment <0)
+    child = np.empty(len(parent1), dtype = "int64")
+    child.fill(-1)
+
+    # from parent A, take one (or more) plex and move it to the new empty solution
+    plex_to_copy = np.random.choice(np.unique(parent1), 1, replace = False)
+    i = 1
+    for p in plex_to_copy: # for loop in case we want to copy more than one plex
+        child[parent1==p] = max(parent2)+i
+        i += 1
+
+    # get all nodes from these plex and their plex numbers from parent B
+    # these are the ones that should NOT be copied
+    node_idx_to_process = np.where(child > -1)[0]
+    plex_to_dissolve = np.unique(parent2[node_idx_to_process])
+    # copy the rest
+    for p in np.unique(parent2):
+        if p in plex_to_dissolve:
+            continue
+        else:
+            child[parent2==p] = p
+
+    # for all remaining nodes, decide where to put them
+    remaining_nodes = np.where(child<0)[0]+1
+    for node in remaining_nodes:
+        # should we leave it allone? 
+        best_estimate = node_impact_orig[node-1]
+        best_plex = max(child)+1
+
+        # or should we merge it with another plex?
+        for plex in np.unique(child):
+            if plex == -1:
+                continue
+            else:
+                estim = estimate_plex_costs(node, child, edge_weights, plex, s)
+                if estim < best_estimate:
+                    best_estimate = estim
+                    best_plex = plex
+
+        # assign it to whatever is best
+        child[node-1] = best_plex
+            
+    return child
