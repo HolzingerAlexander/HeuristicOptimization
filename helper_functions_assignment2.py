@@ -180,12 +180,15 @@ def estimate_plex_costs(node_to_check, plex_assignment, edge_weights, plex_numbe
     
     # get the (current size of plex)+1-s cheapest edges
     edges_needed = len(nodes_in_plex)+1-s
-    order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
-    # these are the indices of the cheapest edges from our current node to another one within the plex
-    cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+    if edges_needed > 0:
+        order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+        # these are the indices of the cheapest edges from our current node to another one within the plex
+        cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+        costs = sum(edge_weights[cheapest_edges_index])
+    else:
+        costs = 0    
     
-    # sum up weights of cheapest edges
-    return sum(edge_weights[cheapest_edges_index])
+    return costs
 
 def assignment_to_solution(plex_assignment, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s):
     node_impact = node_impact_orig.copy()
