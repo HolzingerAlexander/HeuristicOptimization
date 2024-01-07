@@ -260,3 +260,75 @@ def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
         child[node-1] = best_plex
             
     return child
+
+### GA ###
+def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations:int, tolerance, 
+       node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s):
+    # correct elitism_k, because we will create an even number of children and pop_size should stay the same
+    if elitism_k <= 0:
+        elitism_k = 1 # if it is 0 but we have an odd population, we would change it to -1 in the next step and then we have a problem
+    if (pop_size-elitism_k)%2==1:
+        elitism_k -=1
+    
+    ### make population
+    population = generate_rand_pop(pop_size, init_no_plexes, node_impact_orig, 
+                                    node_degree_orig, edge_assignment_orig, edge_weights, s)
+    
+    # calculate the average score of the population
+    pop_avg_prev = 0
+    for p in population:
+        pop_avg_prev += p.score
+    pop_avg_prev = pop_avg_prev/len(population)
+    print("average score of initial population", pop_avg_prev)
+    
+    stallGeneration = 0
+    gen = 1
+    while stallGeneration < MaxStallGenerations:
+        print("generation", gen)
+        ### subsequently select 2 parents to create 2 children
+        weights = [solution.fitness for solution in population]
+        children = []
+        for i in range(25): # create 25*2 children
+            # Choose parents based on weights
+            parents = random.choices(population, weights=weights, k=2)
+            ### recombine to generate children
+            # create children assignments
+            child1 = recombine(parents[0].plex_assignment, parents[1].plex_assignment, node_impact_orig, edge_weights, s)
+            child2 = recombine(parents[1].plex_assignment, parents[0].plex_assignment, node_impact_orig, edge_weights, s)
+            ### mutate children
+            if mutate:
+                # chose a random node to be reassinged to a random plex
+                child1[np.random.randint(0, len(child1))] = random.choice(child1)
+                child2[np.random.randint(0, len(child2))] = random.choice(child2)
+
+            ### evaluate
+            child1 = assignment_to_solution(child1, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s)
+            child2 = assignment_to_solution(child2, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s)
+
+            children.append(child1)
+            children.append(child2)
+
+        ### replace
+        sorted_parents = sorted(population, key=lambda x: x.score, reverse = False)
+        # Selecting top solutions based on score
+        population = sorted_parents[:50]
+        population = population + children
+        print("pop size", len(population))
+        pop_sum = 0
+        for p in population:
+            pop_sum += p.score
+        pop_avg = pop_sum/len(population)
+        print("average score of population", pop_avg)
+        # check if solutions are still improving
+        if pop_avg < pop_avg_prev*(1-tolerance):
+            stallGeneration = 0
+            print("population improved sufficiently")
+        else:
+            stallGeneration += 1
+        pop_avg_prev = pop_avg
+        gen +=1        
+    
+    # get the best solution
+    sorted_solutions = sorted(population, key=lambda x: x.score, reverse = False)
+    # Selecting top solutions based on score
+    return(sorted_solutions[0])
