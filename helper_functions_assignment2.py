@@ -55,7 +55,7 @@ def write_solution(edge_assignment, instance, edge_weights, edges_n1, edges_n2, 
     final_solution.to_csv(file, mode='a', index=False, header=False, sep = " ")
     
     
-def is_splex(node_degree, plex_assignment, plex_number, s) -> bool | np.ndarray:
+def is_splex(node_degree, plex_assignment, plex_number, s): #-> bool | np.ndarray:
     
     min_degree = sum(plex_assignment==plex_number) - s
     problem_nodes = np.where((node_degree < min_degree) & (plex_assignment == plex_number))[0]+1
