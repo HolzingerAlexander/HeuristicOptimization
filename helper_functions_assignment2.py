@@ -265,6 +265,7 @@ def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
 def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations:int, tolerance, 
        node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s):
     # correct elitism_k, because we will create an even number of children and pop_size should stay the same
+    elitism_k = min(pop_size, elitism_k) # can not be bigger than populations
     if elitism_k <= 0:
         elitism_k = 1 # if it is 0 but we have an odd population, we would change it to -1 in the next step and then we have a problem
     if (pop_size-elitism_k)%2==1:
@@ -288,7 +289,7 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
         ### subsequently select 2 parents to create 2 children
         weights = [solution.fitness for solution in population]
         children = []
-        for i in range(25): # create 25*2 children
+        for i in range((pop_size-elitism_k)//2): # create pop_size-elitism children
             # Choose parents based on weights
             parents = random.choices(population, weights=weights, k=2)
             ### recombine to generate children
@@ -311,7 +312,7 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
         ### replace
         sorted_parents = sorted(population, key=lambda x: x.score, reverse = False)
         # Selecting top solutions based on score
-        population = sorted_parents[:50]
+        population = sorted_parents[:elitism_k]
         population = population + children
         print("pop size", len(population))
         pop_sum = 0
