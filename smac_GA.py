@@ -8,10 +8,21 @@ from helper_functions_assignment2 import*
 from smac import HyperparameterOptimizationFacade, Scenario
 from sklearn import datasets
 import os
+import re
 
 #get all instances
 folder_path = 'data/inst_tuning/'
 problem_instances = [file.replace('.txt', '') for file in os.listdir(folder_path) if file.endswith('.txt')]
+
+# get the instance features, i.e. get n and m
+pattern = r"heur\d{3}_n_(\d+)_m_(\d+)"
+inst_features = {}
+for inst in problem_instances:
+	match = re.match(pattern, inst)
+	if match:
+		n_number = int(match.group(1))
+		m_number = int(match.group(2))
+		inst_features[inst] = [n_number, m_number]
 
 # define the training function that takes the parameters that are being tuned and the instance
 # apparently it also needs a seed
@@ -39,21 +50,28 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
 	print("best score:", test.score)
 
 	return test.score
+	
+if __name__ == "__main__":
 
-configspace = ConfigurationSpace({"pop_size": (50,150),
-				   "init_no_plexes":(3,10),
-				   "mutate":[True,False],
-                   "elitism_k":(0,50),
-                   "MaxStallGenerations": (0,5),
-                   "tolerance": (0.01,0.07)})
+	configspace = ConfigurationSpace({"pop_size": (50,150),
+					   "init_no_plexes":(3,25),
+					   "mutate":[True,False],
+					   "elitism_k":(0,50),
+					   "MaxStallGenerations": (0,5),
+					   "tolerance": (0.01,0.07)})
 
-scenario = Scenario(configspace, 
-		    output_directory="GA_smac",
-		     instances = problem_instances, #["heur002_n_100_m_3274", "heur003_n_120_m_2588"],
-		     #instance_features = {"heur002_n_100_m_3274": "heur002", 					   "heur003_n_120_m_2588": "heur003"},
-		     deterministic = True, n_trials=10)
+	scenario = Scenario(configspace, 
+			     output_directory="GA_smac",
+			     instances = problem_instances, 
+			     instance_features = inst_features,
+			     deterministic = True, 
+			     n_trials=100, # how many runs in total
+			     min_budget=1,  # Use min one instance
+			     max_budget=18#, # use max 10 instances
+			     #n_workers = 4 # use 4 workers in parallel
+			     )
 
-smac = HyperparameterOptimizationFacade(scenario, train)
-incumbent = smac.optimize()
+	smac = HyperparameterOptimizationFacade(scenario, train)
+	incumbent = smac.optimize()
 
-print(incumbent)
+	print(incumbent)

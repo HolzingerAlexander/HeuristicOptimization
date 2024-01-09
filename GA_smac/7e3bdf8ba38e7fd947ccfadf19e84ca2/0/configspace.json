@@ -1,0 +1,63 @@
+{
+  "hyperparameters": [
+    {
+      "name": "MaxStallGenerations",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 0,
+      "upper": 5,
+      "default": 2,
+      "q": null
+    },
+    {
+      "name": "elitism_k",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 0,
+      "upper": 50,
+      "default": 25,
+      "q": null
+    },
+    {
+      "name": "init_no_plexes",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 3,
+      "upper": 20,
+      "default": 12,
+      "q": null
+    },
+    {
+      "name": "mutate",
+      "type": "categorical",
+      "choices": [
+        true,
+        false
+      ],
+      "default": true,
+      "weights": null
+    },
+    {
+      "name": "pop_size",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 50,
+      "upper": 150,
+      "default": 100,
+      "q": null
+    },
+    {
+      "name": "tolerance",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 0.07,
+      "default": 0.04,
+      "q": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.6.1",
+  "json_format_version": 0.4
+}
