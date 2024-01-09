@@ -74,6 +74,15 @@ def get_edge_index(a, b, n) -> int:
         return int((a-1)*n-((a-1)*a)/2+b-a-1)
     else:
         raise ValueError("both nodes have the same index")
+        
+def get_edge_nodes(idx, n):
+    for a in range(1,n+1):
+        if idx < int((a-1)*n-((a-1)*a)/2):
+            break
+    a = a-1
+    b = idx - int((a-1)*n-((a-1)*a)/2-a-1)
+    
+    return a,b
 
         
 def add_good_edges(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, plex_number):
