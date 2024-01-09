@@ -1,0 +1,73 @@
+{
+  "stats": {
+    "submitted": 3,
+    "finished": 2,
+    "running": 1
+  },
+  "data": [
+    [
+      1,
+      "heur058_n_300_m_4010",
+      209652396,
+      null,
+      [
+        9119.0,
+        84.19380927085876
+      ],
+      84.24775791168213,
+      1,
+      1704813907.355284,
+      1704813991.6044075,
+      {}
+    ],
+    [
+      1,
+      "heur041_n_300_m_17492",
+      209652396,
+      null,
+      [
+        8723.0,
+        689.9355840682983
+      ],
+      690.124086856842,
+      1,
+      1704813991.607244,
+      1704814681.7323127,
+      {}
+    ],
+    [
+      2,
+      "heur041_n_300_m_17492",
+      209652396,
+      null,
+      2147483647.0,
+      0.0,
+      0,
+      0.0,
+      0.0,
+      {}
+    ]
+  ],
+  "configs": {
+    "1": {
+      "MaxStallGenerations": 1,
+      "elitism_k": 31,
+      "init_no_plexes": 5,
+      "mutate": true,
+      "pop_size": 136,
+      "tolerance": 0.039730939790606504
+    },
+    "2": {
+      "MaxStallGenerations": 3,
+      "elitism_k": 5,
+      "init_no_plexes": 25,
+      "mutate": false,
+      "pop_size": 89,
+      "tolerance": 0.06295001611113549
+    }
+  },
+  "config_origins": {
+    "1": "Initial Design: Sobol",
+    "2": "Initial Design: Sobol"
+  }
+}
