@@ -35,6 +35,7 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
 	
 	node_impact_orig, node_degree_orig, plex_assignment, edges_n1, edges_n2, edge_weights, edge_assignment_orig, s, n, m = create_problem_instance(path)
 	
+	start = time.time()
 	test = GA(pop_size = config["pop_size"],
 		  init_no_plexes = config["init_no_plexes"],
 		  mutate = config["mutate"],
@@ -46,10 +47,11 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
 		  edge_assignment_orig = edge_assignment_orig, 
 		  edge_weights = edge_weights,
 		  s = s)
-		  
-	print("best score:", test.score)
+	
+	runtime = time.time()-start 
+	print("best score:", test.score, "runtime:", runtime)
 
-	return test.score
+	return {'score': test.score, 'runtime': runtime}
 	
 if __name__ == "__main__":
 
@@ -64,6 +66,8 @@ if __name__ == "__main__":
 			     output_directory="GA_smac",
 			     instances = problem_instances, 
 			     instance_features = inst_features,
+			     objectives=["score", "runtime"],
+			     walltime_limit=28800,
 			     deterministic = True, 
 			     n_trials=100, # how many runs in total
 			     min_budget=1,  # Use min one instance
