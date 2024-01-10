@@ -140,10 +140,15 @@ def repair_splex(node_impact, node_degree, plex_assignment, edge_weights, edge_a
         ### get the cheapes edges ###
         # i.e. from all potential edges (of which we have edge_index), get the ones with smallest weight
         # apparently the fastest way is argpartition https://stackoverflow.com/questions/34226400/find-the-index-of-the-k-smallest-values-of-a-numpy-array
-        order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
-        # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
-        cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
-        cheapest_nodes = potential_neighbor_nodes[order_of_cheapest_edges[:edges_needed]]
+        # need to do a special case, since np.argpartition can't handle it if the length of the array is the number of items we want
+        if len(edge_index) == edges_needed:
+            cheapest_edges_index = edge_index
+            cheapest_nodes = potential_neighbor_nodes
+        else:
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+            # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
+            cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+            cheapest_nodes = potential_neighbor_nodes[order_of_cheapest_edges[:edges_needed]]
 
         ### add them to plex ###
         # change edge_assignment 
@@ -190,9 +195,13 @@ def estimate_plex_costs(node_to_check, plex_assignment, edge_weights, plex_numbe
     # get the (current size of plex)+1-s cheapest edges
     edges_needed = len(nodes_in_plex)+1-s
     if edges_needed > 0:
-        order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
-        # these are the indices of the cheapest edges from our current node to another one within the plex
-        cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+        if len(edge_index) == edges_needed:
+            cheapest_edges_index = edge_index
+        else:
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+            # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
+            cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]        
+        
         costs = sum(edge_weights[cheapest_edges_index])
     else:
         costs = 0    
@@ -286,15 +295,16 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
     
     # calculate the average score of the population
     pop_avg_prev = 0
+    pop_avg_traj = []
     for p in population:
         pop_avg_prev += p.score
     pop_avg_prev = pop_avg_prev/len(population)
-    print("average score of initial population", pop_avg_prev)
+    pop_avg_traj.append(pop_avg_prev)
     
     stallGeneration = 0
     gen = 1
     while stallGeneration < MaxStallGenerations:
-        print("generation", gen)
+        #print("generation", gen)
         ### subsequently select 2 parents to create 2 children
         weights = [solution.fitness for solution in population]
         children = []
@@ -323,16 +333,16 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
         # Selecting top solutions based on score
         population = sorted_parents[:elitism_k]
         population = population + children
-        print("pop size", len(population))
+        #print("pop size", len(population))
         pop_sum = 0
         for p in population:
             pop_sum += p.score
         pop_avg = pop_sum/len(population)
-        print("average score of population", pop_avg)
+        pop_avg_traj.append(pop_avg)
         # check if solutions are still improving
         if pop_avg < pop_avg_prev*(1-tolerance):
             stallGeneration = 0
-            print("population improved sufficiently")
+            #print("population improved sufficiently")
         else:
             stallGeneration += 1
         pop_avg_prev = pop_avg
@@ -341,4 +351,4 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
     # get the best solution
     sorted_solutions = sorted(population, key=lambda x: x.score, reverse = False)
     # Selecting top solutions based on score
-    return(sorted_solutions[0])
+    return(sorted_solutions[0], pop_avg_traj)
