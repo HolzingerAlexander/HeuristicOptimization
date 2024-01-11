@@ -13,17 +13,19 @@ def create_problem_instance(path):
     m = metadata.iloc[2]
 
     df = pd.read_csv(path, sep=" ", skiprows=1, names = ["n1", "n2", "e", "w"])
-
+    nodes = pd.DataFrame({"nodes":np.union1d(df["n1"], df["n2"])})
     nodes_from = df.loc[df["e"]==1][["n1","w"]].groupby(['n1']).sum()
+    nodes_from
     nodes_to = df.loc[df["e"]==1][["n2","w"]].groupby(['n2']).sum()
-
-    nodes = nodes_from.join(nodes_to, lsuffix='_from', rsuffix='_to', how = 'outer')
+    nodes = pd.merge(nodes, nodes_from, left_on="nodes", right_on="n1", how="outer")
+    nodes = pd.merge(nodes, nodes_to, left_on="nodes", right_on="n2", how="outer",
+                    suffixes=('_from', '_to'))
     nodes['node_impact'] = nodes.w_from.fillna(0) + nodes.w_to.fillna(0)
     nodes = nodes.drop(columns=['w_from', 'w_to'])
     nodes['current_degree'] = 0
     nodes['splex'] = nodes.index
-    nodes = nodes.reset_index().rename(columns={"index":"node_number"})
-    
+    nodes = nodes.rename(columns={"nodes":"node_number"})
+
     node_impact = nodes["node_impact"].copy().to_numpy()
     node_degree = nodes["current_degree"].copy().to_numpy()
     plex_assignment = nodes["splex"].copy().to_numpy()
@@ -31,7 +33,7 @@ def create_problem_instance(path):
     edges = df.copy()
     edges['w'] = edges['w'] * (1-(edges['e']*2))
     edges['e'] = 0
-    
+
     edge_n1 = edges["n1"].copy().to_numpy()
     edge_n2 = edges["n2"].copy().to_numpy()
     edge_weights = edges["w"].copy().to_numpy()
