@@ -147,7 +147,9 @@ def repair_splex(node_impact, node_degree, plex_assignment, edge_weights, edge_a
             cheapest_edges_index = edge_index
             cheapest_nodes = potential_neighbor_nodes
         else:
-            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed-1)
+            #print("length edge index:", len(edge_index))
+            #print("edges needed:", edges_needed)
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
             # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
             cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
             cheapest_nodes = potential_neighbor_nodes[order_of_cheapest_edges[:edges_needed]]
@@ -200,7 +202,9 @@ def estimate_plex_costs(node_to_check, plex_assignment, edge_weights, plex_numbe
         if len(edge_index) == edges_needed:
             cheapest_edges_index = edge_index
         else:
-            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed-1)
+            print("length edge index:", len(edge_index))
+            print("edges needed:", edges_needed)
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
             # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
             cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]        
         
