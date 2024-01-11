@@ -427,7 +427,7 @@ def remove_highest_cost_node(plex_assignment, edge_assignment, n, node_impact, n
 
 def remove_most_edges_node(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
     most_edges_node = None
-    highest_edge_count = 0 
+    highest_edge_count = -1
     for a in range(1, n):
         edge_indices = np.fromiter((get_edge_index(a, b, n) for b in range(1, n) if b != a), 
                                 plex_assignment.dtype)
@@ -563,3 +563,73 @@ def get_edge_nodes(idx, n):
     b = idx - int((a-1)*n-((a-1)*a)/2-a-1)
     
     return a,b
+
+def update_weight(old_weight, num_applications, num_successes, reaction_factor, min_weight):
+    if num_applications == 0:
+        return old_weight
+    new_weight = old_weight * (1-reaction_factor) + reaction_factor * (num_successes / num_applications)
+    return max(new_weight, min_weight) # Make sure weight never equals 0
+
+def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
+        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s):
+
+    destroy_methods = [remove_random_node, remove_highest_cost_node, remove_most_edges_node, 
+                   remove_smallest_splex, remove_largest_splex]
+    repair_methods = [add_to_largest_splex, add_to_smallest_splex, add_new_splex, add_to_random_splex]
+
+    destroy_weights = np.ones(len(destroy_methods))
+    repair_weights = np.ones(len(repair_methods))
+
+    n = len(plex_assignment)
+
+    current_score = sum(node_impact)/2
+
+    for i in range(number_of_phases):
+        destroy_prob = destroy_weights/destroy_weights.sum()
+        repair_prob = repair_weights/repair_weights.sum()
+
+        #print(destroy_prob)
+        #print(repair_prob)
+
+        destroy_applications = np.zeros(len(destroy_methods))
+        destroy_successes = np.zeros(len(destroy_methods))
+        repair_applications = np.zeros(len(repair_methods))
+        repair_successes = np.zeros(len(repair_methods))
+
+        for j in range(iterations_per_phase):
+            destroy_idx = np.random.choice(len(destroy_methods), p=destroy_prob)
+            repair_idx = np.random.choice(len(repair_methods), p=repair_prob)
+            
+            destroy_applications[destroy_idx] += 1
+            repair_applications[repair_idx] += 1
+
+            plex_assignment_new = plex_assignment.copy()
+            edge_assignment_new = edge_assignment.copy()
+            node_impact_new = node_impact.copy()
+            node_degree_new = node_degree.copy()
+            
+            _, _, removed_nodes = destroy_methods[destroy_idx](plex_assignment_new, edge_assignment_new, n, node_impact_new, node_degree_new, edge_weights)
+            
+            _, _ = repair_methods[repair_idx](plex_assignment_new, edge_assignment_new, n, removed_nodes, node_impact_new, node_degree_new, edge_weights, s)
+
+            new_score = sum(node_impact_new)/2
+            if new_score < current_score:
+                destroy_successes[destroy_idx] += 1
+                repair_successes[repair_idx] += 1
+            
+                current_score = new_score
+                plex_assignment = plex_assignment_new
+                edge_assignment = edge_assignment_new
+                node_impact = node_impact_new
+                node_degree = node_degree_new          
+
+            #print(1)
+
+        for j in range(len(destroy_methods)):
+            destroy_weights[j] = update_weight(destroy_weights[j], destroy_applications[j], destroy_successes[j], reaction_factor, min_weight)
+            
+        for j in range(len(repair_methods)):
+            repair_weights[j] = update_weight(repair_weights[j], repair_applications[j], repair_successes[j], reaction_factor, min_weight)
+        
+        #print(2)
+    return plex_assignment, edge_assignment, node_impact, node_degree, current_score
