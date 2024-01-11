@@ -57,7 +57,7 @@ def write_solution(edge_assignment, instance, edge_weights, edges_n1, edges_n2, 
     final_solution.to_csv(file, mode='a', index=False, header=False, sep = " ")
     
     
-def is_splex(node_degree, plex_assignment, plex_number, s) -> bool | np.ndarray:
+def is_splex(node_degree, plex_assignment, plex_number, s): #-> bool | np.ndarray:
     
     min_degree = sum(plex_assignment==plex_number) - s
     problem_nodes = np.where((node_degree < min_degree) & (plex_assignment == plex_number))[0]+1
@@ -76,6 +76,15 @@ def get_edge_index(a, b, n) -> int:
         return int((a-1)*n-((a-1)*a)/2+b-a-1)
     else:
         raise ValueError("both nodes have the same index")
+        
+def get_edge_nodes(idx, n):
+    for a in range(1,n+1):
+        if idx < int((a-1)*n-((a-1)*a)/2):
+            break
+    a = a-1
+    b = idx - int((a-1)*n-((a-1)*a)/2-a-1)
+    
+    return a,b
 
         
 def add_good_edges(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, plex_number):
@@ -133,10 +142,15 @@ def repair_splex(node_impact, node_degree, plex_assignment, edge_weights, edge_a
         ### get the cheapes edges ###
         # i.e. from all potential edges (of which we have edge_index), get the ones with smallest weight
         # apparently the fastest way is argpartition https://stackoverflow.com/questions/34226400/find-the-index-of-the-k-smallest-values-of-a-numpy-array
-        order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
-        # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
-        cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
-        cheapest_nodes = potential_neighbor_nodes[order_of_cheapest_edges[:edges_needed]]
+        # need to do a special case, since np.argpartition can't handle it if the length of the array is the number of items we want
+        if len(edge_index) == edges_needed:
+            cheapest_edges_index = edge_index
+            cheapest_nodes = potential_neighbor_nodes
+        else:
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+            # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
+            cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+            cheapest_nodes = potential_neighbor_nodes[order_of_cheapest_edges[:edges_needed]]
 
         ### add them to plex ###
         # change edge_assignment 
@@ -183,9 +197,13 @@ def estimate_plex_costs(node_to_check, plex_assignment, edge_weights, plex_numbe
     # get the (current size of plex)+1-s cheapest edges
     edges_needed = len(nodes_in_plex)+1-s
     if edges_needed > 0:
-        order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
-        # these are the indices of the cheapest edges from our current node to another one within the plex
-        cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]
+        if len(edge_index) == edges_needed:
+            cheapest_edges_index = edge_index
+        else:
+            order_of_cheapest_edges = np.argpartition(edge_weights[edge_index], edges_needed)
+            # these are the indices of the cheapest edges from our current node to another one within the plex (and the nodes)
+            cheapest_edges_index = edge_index[order_of_cheapest_edges[:edges_needed]]        
+        
         costs = sum(edge_weights[cheapest_edges_index])
     else:
         costs = 0    
@@ -262,6 +280,81 @@ def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
         child[node-1] = best_plex
             
     return child
+
+### GA ###
+def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations:int, tolerance, 
+       node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s):
+    # correct elitism_k, because we will create an even number of children and pop_size should stay the same
+    elitism_k = min(pop_size, elitism_k) # can not be bigger than populations
+    if elitism_k <= 0:
+        elitism_k = 1 # if it is 0 but we have an odd population, we would change it to -1 in the next step and then we have a problem
+    if (pop_size-elitism_k)%2==1:
+        elitism_k -=1
+    
+    ### make population
+    population = generate_rand_pop(pop_size, init_no_plexes, node_impact_orig, 
+                                    node_degree_orig, edge_assignment_orig, edge_weights, s)
+    
+    # calculate the average score of the population
+    pop_avg_prev = 0
+    pop_avg_traj = []
+    for p in population:
+        pop_avg_prev += p.score
+    pop_avg_prev = pop_avg_prev/len(population)
+    pop_avg_traj.append(pop_avg_prev)
+    
+    stallGeneration = 0
+    gen = 1
+    while stallGeneration < MaxStallGenerations:
+        #print("generation", gen)
+        ### subsequently select 2 parents to create 2 children
+        weights = [solution.fitness for solution in population]
+        children = []
+        for i in range((pop_size-elitism_k)//2): # create pop_size-elitism children
+            # Choose parents based on weights
+            parents = random.choices(population, weights=weights, k=2)
+            ### recombine to generate children
+            # create children assignments
+            child1 = recombine(parents[0].plex_assignment, parents[1].plex_assignment, node_impact_orig, edge_weights, s)
+            child2 = recombine(parents[1].plex_assignment, parents[0].plex_assignment, node_impact_orig, edge_weights, s)
+            ### mutate children
+            if mutate:
+                # chose a random node to be reassinged to a random plex
+                child1[np.random.randint(0, len(child1))] = random.choice(child1)
+                child2[np.random.randint(0, len(child2))] = random.choice(child2)
+
+            ### evaluate
+            child1 = assignment_to_solution(child1, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s)
+            child2 = assignment_to_solution(child2, node_impact_orig, node_degree_orig, edge_weights, edge_assignment_orig, s)
+
+            children.append(child1)
+            children.append(child2)
+
+        ### replace
+        sorted_parents = sorted(population, key=lambda x: x.score, reverse = False)
+        # Selecting top solutions based on score
+        population = sorted_parents[:elitism_k]
+        population = population + children
+        #print("pop size", len(population))
+        pop_sum = 0
+        for p in population:
+            pop_sum += p.score
+        pop_avg = pop_sum/len(population)
+        pop_avg_traj.append(pop_avg)
+        # check if solutions are still improving
+        if pop_avg < pop_avg_prev*(1-tolerance):
+            stallGeneration = 0
+            #print("population improved sufficiently")
+        else:
+            stallGeneration += 1
+        pop_avg_prev = pop_avg
+        gen +=1        
+    
+    # get the best solution
+    sorted_solutions = sorted(population, key=lambda x: x.score, reverse = False)
+    # Selecting top solutions based on score
+    return(sorted_solutions[0], pop_avg_traj)
+
 
 def remove_node(plex_assignment, edge_assignment, n, node_to_remove, node_impact, node_degree, edge_weights):
     plex_number = plex_assignment[node_to_remove]

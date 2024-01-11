@@ -1,0 +1,251 @@
+{
+    "name": "4c2a6242dc8ec6ee5be9ee80d0cb33f9",
+    "deterministic": true,
+    "objectives": [
+        "score",
+        "runtime"
+    ],
+    "crash_cost": Infinity,
+    "termination_cost_threshold": Infinity,
+    "walltime_limit": 28800,
+    "cputime_limit": Infinity,
+    "trial_walltime_limit": null,
+    "trial_memory_limit": null,
+    "n_trials": 100,
+    "use_default_config": false,
+    "instances": [
+        "heur041_n_300_m_17492",
+        "heur060_n_300_m_12405",
+        "heur058_n_300_m_4010",
+        "heur052_n_300_m_26628",
+        "heur057_n_300_m_2109",
+        "heur053_n_300_m_39861",
+        "heur040_n_300_m_13358",
+        "heur043_n_300_m_12914",
+        "heur055_n_300_m_5164",
+        "heur045_n_300_m_6293",
+        "heur046_n_300_m_13150",
+        "heur042_n_300_m_5764",
+        "heur047_n_300_m_20096",
+        "heur048_n_300_m_14666",
+        "heur054_n_300_m_2746",
+        "heur059_n_300_m_7867",
+        "heur044_n_300_m_3234",
+        "heur056_n_300_m_12131"
+    ],
+    "instance_features": {
+        "heur041_n_300_m_17492": [
+            300,
+            17492
+        ],
+        "heur060_n_300_m_12405": [
+            300,
+            12405
+        ],
+        "heur058_n_300_m_4010": [
+            300,
+            4010
+        ],
+        "heur052_n_300_m_26628": [
+            300,
+            26628
+        ],
+        "heur057_n_300_m_2109": [
+            300,
+            2109
+        ],
+        "heur053_n_300_m_39861": [
+            300,
+            39861
+        ],
+        "heur040_n_300_m_13358": [
+            300,
+            13358
+        ],
+        "heur043_n_300_m_12914": [
+            300,
+            12914
+        ],
+        "heur055_n_300_m_5164": [
+            300,
+            5164
+        ],
+        "heur045_n_300_m_6293": [
+            300,
+            6293
+        ],
+        "heur046_n_300_m_13150": [
+            300,
+            13150
+        ],
+        "heur042_n_300_m_5764": [
+            300,
+            5764
+        ],
+        "heur047_n_300_m_20096": [
+            300,
+            20096
+        ],
+        "heur048_n_300_m_14666": [
+            300,
+            14666
+        ],
+        "heur054_n_300_m_2746": [
+            300,
+            2746
+        ],
+        "heur059_n_300_m_7867": [
+            300,
+            7867
+        ],
+        "heur044_n_300_m_3234": [
+            300,
+            3234
+        ],
+        "heur056_n_300_m_12131": [
+            300,
+            12131
+        ]
+    },
+    "min_budget": 1,
+    "max_budget": 18,
+    "seed": 0,
+    "n_workers": 1,
+    "_meta": {
+        "facade": {
+            "name": "HyperparameterOptimizationFacade"
+        },
+        "runner": {
+            "name": "TargetFunctionRunner",
+            "code": "b'd\\x01}\\x03|\\x01}\\x04|\\x03|\\x04\\x17\\x00d\\x02\\x17\\x00}\\x05t\\x00|\\x05\\x83\\x01\\x01\\x00t\\x01|\\x05\\x83\\x01\\\\\\n}\\x06}\\x07}\\x08}\\t}\\n}\\x0b}\\x0c}\\r}\\x0e}\\x0ft\\x02\\xa0\\x02\\xa1\\x00}\\x10t\\x03|\\x00d\\x03\\x19\\x00|\\x00d\\x04\\x19\\x00|\\x00d\\x05\\x19\\x00|\\x00d\\x06\\x19\\x00|\\x00d\\x07\\x19\\x00|\\x00d\\x08\\x19\\x00|\\x06|\\x07|\\x0c|\\x0b|\\rd\\t\\x8d\\x0b}\\x11t\\x02\\xa0\\x02\\xa1\\x00|\\x10\\x18\\x00}\\x12t\\x00d\\n|\\x11j\\x04d\\x0b|\\x12\\x83\\x04\\x01\\x00|\\x11j\\x04|\\x12d\\x0c\\x9c\\x02S\\x00'"
+        },
+        "model": {
+            "name": "RandomForest",
+            "types": [
+                0,
+                0,
+                0,
+                2,
+                0,
+                0,
+                0,
+                0
+            ],
+            "bounds": [
+                [
+                    0,
+                    1.0
+                ],
+                [
+                    0,
+                    1.0
+                ],
+                [
+                    0,
+                    1.0
+                ],
+                [
+                    2,
+                    NaN
+                ],
+                [
+                    0,
+                    1.0
+                ],
+                [
+                    0,
+                    1.0
+                ]
+            ],
+            "pca_components": 7,
+            "n_trees": 10,
+            "n_points_per_tree": -1,
+            "ratio_features": 1.0,
+            "min_samples_split": 2,
+            "min_samples_leaf": 1,
+            "max_depth": 1048576,
+            "eps_purity": 1e-08,
+            "max_nodes": 1048576,
+            "bootstrapping": true
+        },
+        "acquisition_maximizer": {
+            "name": "LocalAndSortedRandomSearch",
+            "acquisition_function": {
+                "name": "EI",
+                "xi": 0.0,
+                "log": true
+            },
+            "challengers": 10000,
+            "seed": 0,
+            "random_search": {
+                "name": "RandomSearch",
+                "acquisition_function": {
+                    "name": "EI",
+                    "xi": 0.0,
+                    "log": true
+                },
+                "challengers": 5000,
+                "seed": 0
+            },
+            "local_search": {
+                "name": "LocalSearch",
+                "acquisition_function": {
+                    "name": "EI",
+                    "xi": 0.0,
+                    "log": true
+                },
+                "challengers": 5000,
+                "seed": 0,
+                "max_steps": null,
+                "n_steps_plateau_walk": 10,
+                "vectorization_min_obtain": 2,
+                "vectorization_max_obtain": 64
+            }
+        },
+        "acquisition_function": {
+            "name": "EI",
+            "xi": 0.0,
+            "log": true
+        },
+        "intensifier": {
+            "name": "Intensifier",
+            "max_incumbents": 10,
+            "seed": 0
+        },
+        "initial_design": {
+            "name": "SobolInitialDesign",
+            "n_configs": 25,
+            "n_configs_per_hyperparameter": 10,
+            "additional_configs": [],
+            "seed": 0
+        },
+        "random_design": {
+            "name": "ProbabilityRandomDesign",
+            "seed": 0,
+            "probability": 0.2
+        },
+        "runhistory_encoder": {
+            "name": "RunHistoryLogScaledEncoder",
+            "considered_states": [
+                1,
+                2,
+                4
+            ],
+            "lower_budget_states": [],
+            "scale_percentage": 5,
+            "seed": 0
+        },
+        "multi_objective_algorithm": {
+            "name": "MeanAggregationStrategy",
+            "objective_weights": null
+        },
+        "config_selector": {
+            "name": "ConfigSelector",
+            "retrain_after": 8,
+            "retries": 16,
+            "min_trials": 1
+        },
+        "version": "2.0.2"
+    },
+    "output_directory": "GA_smac/4c2a6242dc8ec6ee5be9ee80d0cb33f9/0"
+}
