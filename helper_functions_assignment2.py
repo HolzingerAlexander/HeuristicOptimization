@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import time
+import math
+import sys
 import random
 from itertools import combinations
 
@@ -260,3 +262,165 @@ def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
         child[node-1] = best_plex
             
     return child
+
+def remove_node(plex_assignment, edge_assignment, n, node_to_remove, node_impact, node_degree, edge_weights):
+    plex_number = plex_assignment[node_to_remove]
+
+    # Update plex assignment    
+    plex_assignment[node_to_remove] = -1
+
+    nodes_in_plex = np.where(plex_assignment == plex_number)[0]+1
+    
+    edge_nodes = np.fromiter(((get_edge_index(node_to_remove, b, n), b) 
+                                for b in nodes_in_plex 
+                                if b != node_to_remove
+                                and edge_assignment[get_edge_index(node_to_remove, b, n)] == 1), 
+                               np.dtype((nodes_in_plex.dtype, 2)))
+    
+    # Update degrees and impacts
+    for edge_node in edge_nodes:
+        node_degree[edge_node[1]-1] -= 1
+        node_impact[edge_node[1]-1] -= edge_weights[edge_node[1]-1]
+    node_impact[node_to_remove] = 0
+    node_degree[node_to_remove] = 0
+
+    # Remove edge assignments
+    np.put(edge_assignment, [i[0] for i in edge_nodes], 0)
+
+def remove_random_node(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
+    node_to_remove = random.randrange(1, n)
+
+    remove_node(plex_assignment, edge_assignment, n, node_to_remove, node_impact, node_degree, edge_weights)
+
+    return plex_assignment, edge_assignment, [node_to_remove]
+
+def remove_highest_cost_node(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
+    highest_cost_node = None
+    highest_weight = ~sys.maxsize
+    actual_weights = np.multiply(edge_weights, edge_assignment)
+
+    for a in range(1, n):
+        edge_indices = np.fromiter((get_edge_index(a, b, n) for b in range(1, n) if b != a), 
+                                plex_assignment.dtype)
+        
+        total_weight = actual_weights[edge_indices].sum()
+        
+        if total_weight > highest_weight:
+            highest_cost_node = a
+            highest_weight = total_weight
+    
+    remove_node(plex_assignment, edge_assignment, n, highest_cost_node, node_impact, node_degree, edge_weights)
+
+    return plex_assignment, edge_assignment, [highest_cost_node]
+
+def remove_most_edges_node(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
+    most_edges_node = None
+    highest_edge_count = 0 
+    for a in range(1, n):
+        edge_indices = np.fromiter((get_edge_index(a, b, n) for b in range(1, n) if b != a), 
+                                plex_assignment.dtype)
+        
+        edges = edge_assignment[edge_indices].sum()
+        
+        if edges > highest_edge_count:
+            most_edges_node = a
+            highest_edge_count = edges
+    
+    remove_node(plex_assignment, edge_assignment, n, most_edges_node, node_impact, node_degree, edge_weights)
+
+    return plex_assignment, edge_assignment, [most_edges_node]
+
+def remove_plex(plex_assignment, edge_assignment, n, plex, node_impact, node_degree):
+    # remove edges
+    nodes_in_plex = np.where(plex_assignment == plex)[0]+1
+
+    edge_indices = np.fromiter((get_edge_index(a, b, n)
+                                for a in nodes_in_plex
+                                for b in nodes_in_plex 
+                                if a != b),
+                               nodes_in_plex.dtype)
+    # assign the values at the edge indices to 0
+    np.put(edge_assignment, edge_indices, 0)
+
+    plex_assignment[plex_assignment == plex] = -1
+    edge_assignment[edge_indices] = 0
+
+    node_impact[nodes_in_plex - 1] = 0
+    node_degree[nodes_in_plex - 1] = 0
+
+    return nodes_in_plex
+
+def remove_smallest_splex(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
+    plex_counts = np.unique(plex_assignment, return_counts=True)
+    smallest_plex = plex_counts[0][plex_counts[1].argmin()]
+
+    nodes_in_plex = remove_plex(plex_assignment, edge_assignment, n, smallest_plex, node_impact, node_degree)
+
+    return plex_assignment, edge_assignment, nodes_in_plex
+
+def remove_largest_splex(plex_assignment, edge_assignment, n, node_impact, node_degree, edge_weights):
+    plex_counts = np.unique(plex_assignment, return_counts=True)
+    largest_plex = plex_counts[0][plex_counts[1].argmax()]
+
+    nodes_in_plex = remove_plex(plex_assignment, edge_assignment, n, largest_plex, node_impact, node_degree)
+
+    return plex_assignment, edge_assignment, nodes_in_plex
+
+def add_to_smallest_splex(plex_assignment, edge_assignment, n, nodes, node_impact, node_degree, edge_weights, s):
+    plex_counts = np.unique(plex_assignment, return_counts=True)
+    smallest_plex = plex_counts[0][plex_counts[1].argmin()]
+
+    plex_assignment[plex_assignment == -1] = smallest_plex
+
+    repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, s)
+
+    return plex_assignment, edge_assignment
+
+def add_to_largest_splex(plex_assignment, edge_assignment, n, nodes, node_impact, node_degree, edge_weights, s):
+    plex_counts = np.unique(plex_assignment, return_counts=True)
+    largest_plex = plex_counts[0][plex_counts[1].argmax()]
+
+    plex_assignment[plex_assignment == -1] = largest_plex
+
+    repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, s)
+
+    return plex_assignment, edge_assignment
+
+def add_new_splex(plex_assignment, edge_assignment, n, nodes, node_impact, node_degree, edge_weights, s):
+    new_plex = plex_assignment.max()
+
+    plex_assignment[plex_assignment == -1] = new_plex
+
+    repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, s)
+
+    return plex_assignment, edge_assignment
+
+def add_to_random_splex(plex_assignment, edge_assignment, n, nodes, node_impact, node_degree, edge_weights, s):
+    plexs = np.unique(plex_assignment)
+    random_index = np.random.randint(0, plexs.shape[0])
+    random_plex = plexs[random_index]
+
+    plex_assignment[plex_assignment == -1] = random_plex
+
+    repair_solution(node_impact, node_degree, plex_assignment, edge_weights, edge_assignment, s)
+
+    return plex_assignment, edge_assignment
+
+def add_via_lowest_weight_edge(plex_assignment, edge_assignment, n, nodes, node_impact, node_degree, edge_weights, s):
+    # TODO
+
+    repair_solution(node_impact)
+
+    return plex_assignment, edge_assignment
+
+def add_highest_cost(plex_assignment, edge_assignment, nodes):
+    return plex_assignment, edge_assignment
+
+def get_edge_nodes(idx, n):
+    for a in range(1,n+1):
+        if idx < int((a-1)*n-((a-1)*a)/2):
+            break
+    a = a-1
+    b = idx - int((a-1)*n-((a-1)*a)/2-a-1)
+    
+    return a,b
