@@ -576,7 +576,10 @@ def update_weight(old_weight, num_applications, num_successes, reaction_factor, 
     return max(new_weight, min_weight) # Make sure weight never equals 0
 
 def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
-        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s, trajectory = False):
+        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s):
+
+    start_time = time.time()
+    end_time = start_time + (60*4) # 4 Minutes
 
     destroy_methods = [remove_random_node, remove_highest_cost_node, remove_most_edges_node, 
                    remove_smallest_splex, remove_largest_splex]
@@ -616,12 +619,13 @@ def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
             edge_assignment_new = edge_assignment.copy()
             node_impact_new = node_impact.copy()
             node_degree_new = node_degree.copy()
-            
+
             _, _, removed_nodes = destroy_methods[destroy_idx](plex_assignment_new, edge_assignment_new, n, node_impact_new, node_degree_new, edge_weights)
             
             _, _ = repair_methods[repair_idx](plex_assignment_new, edge_assignment_new, n, removed_nodes, node_impact_new, node_degree_new, edge_weights, s)
 
             new_score = sum(node_impact_new)/2
+
             if new_score < current_score:
                 destroy_successes[destroy_idx] += 1
                 repair_successes[repair_idx] += 1
@@ -630,12 +634,18 @@ def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
                 plex_assignment = plex_assignment_new
                 edge_assignment = edge_assignment_new
                 node_impact = node_impact_new
-                node_degree = node_degree_new          
+                node_degree = node_degree_new
+            if time.time() > end_time:
+                break
 
             #print(1)
             # append current score
             traj.append(current_score)
             
+        if time.time() > end_time:
+            print("time_limit")
+            break
+
         for j in range(len(destroy_methods)):
             destroy_weights[j] = update_weight(destroy_weights[j], destroy_applications[j], destroy_successes[j], reaction_factor, min_weight)
             
