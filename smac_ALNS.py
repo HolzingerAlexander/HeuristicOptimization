@@ -35,17 +35,18 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
 	
 	node_impact_orig, node_degree_orig, plex_assignment, edges_n1, edges_n2, edge_weights, edge_assignment_orig, s, n, m = create_problem_instance(path)
 	plex_assignment = np.random.choice(10, n)
-    number_of_phases = round(4000/config["iterations_per_phase"])
+	number_of_phases = round(4000/config["iterations_per_phase"])
     
 	start = time.time()
-    _, _, _, _, score = ALNS(min_weight = config["min_weight"],
+	
+	_, _, _, _, score = ALNS(min_weight = config["min_weight"],
                              reaction_factor = config["reaction_factor"],
                              iterations_per_phase = config["iterations_per_phase"],
                              number_of_phases = number_of_phases, 
-                             node_impact_orig = node_impact_orig,
-                   		     node_degree_orig = node_degree_orig,
-                   		     edge_assignment_orig = edge_assignment_orig, 
-                   		     edge_weights = edge_weights, 
+                             node_impact = node_impact_orig,
+                             node_degree = node_degree_orig,
+                             edge_assignment = edge_assignment_orig,
+                             edge_weights = edge_weights, 
                              plex_assignment = plex_assignment, 
                              s = s)
 
@@ -59,7 +60,7 @@ if __name__ == "__main__":
 
 	configspace = ConfigurationSpace({"min_weight": (0.01,0.25),
 					   "reaction_factor":(0.01,1.0),
-					   "iterations_per_phase":(5,200))})
+					   "iterations_per_phase":(5,200)})
 
 	scenario = Scenario(configspace, 
 			     output_directory="ALNS_smac",

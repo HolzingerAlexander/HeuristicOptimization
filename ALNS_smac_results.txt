@@ -1,0 +1,6 @@
+[Configuration(values={
+  'iterations_per_phase': 146,
+  'min_weight': 0.18258283488452434,
+  'reaction_factor': 0.6850578218046576,
+})]
+
