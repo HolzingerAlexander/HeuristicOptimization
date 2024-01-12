@@ -1,6 +1,26 @@
 [Configuration(values={
-  'iterations_per_phase': 146,
-  'min_weight': 0.18258283488452434,
-  'reaction_factor': 0.6850578218046576,
+  'iterations_per_phase': 19,
+  'min_weight': 0.16739073976874352,
+  'reaction_factor': 0.2578662525396794,
+}), Configuration(values={
+  'iterations_per_phase': 38,
+  'min_weight': 0.14030814811587333,
+  'reaction_factor': 0.5839582003559918,
+}), Configuration(values={
+  'iterations_per_phase': 89,
+  'min_weight': 0.06726416580379009,
+  'reaction_factor': 0.03679910252802074,
+}), Configuration(values={
+  'iterations_per_phase': 78,
+  'min_weight': 0.14192152897367402,
+  'reaction_factor': 0.8233442674501305,
+}), Configuration(values={
+  'iterations_per_phase': 39,
+  'min_weight': 0.14205990036684693,
+  'reaction_factor': 0.6407011189057079,
+}), Configuration(values={
+  'iterations_per_phase': 37,
+  'min_weight': 0.0806862244007475,
+  'reaction_factor': 0.5827043170842159,
 })]
 
