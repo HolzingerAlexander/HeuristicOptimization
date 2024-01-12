@@ -1,0 +1,35 @@
+{
+  "hyperparameters": [
+    {
+      "name": "iterations_per_phase",
+      "type": "uniform_int",
+      "log": false,
+      "lower": 5,
+      "upper": 200,
+      "default": 102,
+      "q": null
+    },
+    {
+      "name": "min_weight",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 0.25,
+      "default": 0.13,
+      "q": null
+    },
+    {
+      "name": "reaction_factor",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.01,
+      "upper": 1.0,
+      "default": 0.505,
+      "q": null
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.6.1",
+  "json_format_version": 0.4
+}
