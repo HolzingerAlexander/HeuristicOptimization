@@ -287,7 +287,7 @@ def recombine(parent1, parent2, node_impact_orig, edge_weights, s):
 
 ### GA ###
 def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations:int, tolerance, 
-       node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s):
+       node_impact_orig, node_degree_orig, edge_assignment_orig, edge_weights, s, trajectory = False):
     # correct elitism_k, because we will create an even number of children and pop_size should stay the same
     elitism_k = min(pop_size, elitism_k) # can not be bigger than populations
     if elitism_k <= 0:
@@ -357,7 +357,10 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
     # get the best solution
     sorted_solutions = sorted(population, key=lambda x: x.score, reverse = False)
     # Selecting top solutions based on score
-    return(sorted_solutions[0], pop_avg_traj)
+    if trajectory:
+        return(sorted_solutions[0], pop_avg_traj)
+    else:
+        return sorted_solutions[0]
 
 
 def remove_node(plex_assignment, edge_assignment, n, node_to_remove, node_impact, node_degree, edge_weights):
@@ -573,7 +576,7 @@ def update_weight(old_weight, num_applications, num_successes, reaction_factor, 
     return max(new_weight, min_weight) # Make sure weight never equals 0
 
 def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
-        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s):
+        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s, trajectory = False):
 
     destroy_methods = [remove_random_node, remove_highest_cost_node, remove_most_edges_node, 
                    remove_smallest_splex, remove_largest_splex]
@@ -585,6 +588,10 @@ def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
     n = len(plex_assignment)
 
     current_score = sum(node_impact)/2
+    
+    # initialize score trajectory
+    traj = []
+    traj.append(current_score)
 
     for i in range(number_of_phases):
         destroy_prob = destroy_weights/destroy_weights.sum()
@@ -626,12 +633,17 @@ def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
                 node_degree = node_degree_new          
 
             #print(1)
-
+            # append current score
+            traj.append(current_score)
+            
         for j in range(len(destroy_methods)):
             destroy_weights[j] = update_weight(destroy_weights[j], destroy_applications[j], destroy_successes[j], reaction_factor, min_weight)
             
         for j in range(len(repair_methods)):
             repair_weights[j] = update_weight(repair_weights[j], repair_applications[j], repair_successes[j], reaction_factor, min_weight)
         
-        #print(2)
-    return plex_assignment, edge_assignment, node_impact, node_degree, current_score
+    
+    if trajectory:
+        return plex_assignment, edge_assignment, node_impact, node_degree, current_score, traj
+    else:
+        return plex_assignment, edge_assignment, node_impact, node_degree, current_score
