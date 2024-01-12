@@ -309,6 +309,10 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
     
     stallGeneration = 0
     gen = 1
+    
+    # want to limit runtime by 4 minutes
+    start_time = time.time()
+    end_time = start_time + (60*4)
     while stallGeneration < MaxStallGenerations:
         #print("generation", gen)
         ### subsequently select 2 parents to create 2 children
@@ -352,7 +356,11 @@ def GA(pop_size, init_no_plexes, mutate:bool, elitism_k:int, MaxStallGenerations
         else:
             stallGeneration += 1
         pop_avg_prev = pop_avg
-        gen +=1        
+        gen +=1
+        
+        if time.time() > end_time:
+            print("time_limit")
+            break
     
     # get the best solution
     sorted_solutions = sorted(population, key=lambda x: x.score, reverse = False)
