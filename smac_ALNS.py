@@ -36,6 +36,7 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
 	node_impact_orig, node_degree_orig, plex_assignment, edges_n1, edges_n2, edge_weights, edge_assignment_orig, s, n, m = create_problem_instance(path)
 	plex_assignment = np.random.choice(10, n)
 	number_of_phases = round(4000/config["iterations_per_phase"])
+	repair_solution(node_impact_orig, node_degree_orig, plex_assignment, edge_weights, edge_assignment_orig, s)
     
 	start = time.time()
 	
@@ -48,7 +49,8 @@ def train(config: Configuration, instance: str, seed: int = 0) -> float:
                              edge_assignment = edge_assignment_orig,
                              edge_weights = edge_weights, 
                              plex_assignment = plex_assignment, 
-                             s = s)
+                             s = s,
+							 trajectory= False)
 
 	
 	runtime = time.time()-start 

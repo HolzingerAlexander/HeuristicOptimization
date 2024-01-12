@@ -576,7 +576,7 @@ def update_weight(old_weight, num_applications, num_successes, reaction_factor, 
     return max(new_weight, min_weight) # Make sure weight never equals 0
 
 def ALNS(min_weight, reaction_factor, iterations_per_phase, number_of_phases,
-        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s):
+        node_impact, node_degree, edge_assignment, edge_weights, plex_assignment, s, trajectory = False):
 
     start_time = time.time()
     end_time = start_time + (60*4) # 4 Minutes
